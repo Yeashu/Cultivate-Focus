@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Sprout, Timer, ListTodo } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { OnboardingGuide } from "@/components/tutorial/onboarding-guide";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -58,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <nav className="flex flex-wrap items-center gap-2 rounded-full bg-[var(--surface-muted)]/40 p-1">
               {navigation.map((item) => (
                 <NavItem
@@ -70,6 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               ))}
             </nav>
+            <OnboardingGuide />
             <ThemeToggle />
           </div>
         </header>
