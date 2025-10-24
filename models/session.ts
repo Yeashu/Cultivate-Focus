@@ -2,6 +2,11 @@ import { Schema, model, models, type InferSchemaType } from "mongoose";
 
 const SessionSchema = new Schema(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     taskId: {
       type: Schema.Types.ObjectId,
       ref: "Task",

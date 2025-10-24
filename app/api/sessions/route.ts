@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Types } from "mongoose";
 
+import { getAuthSession } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { SessionModel } from "@/models/session";
 import { TaskModel } from "@/models/task";
@@ -7,6 +9,7 @@ import type { SessionDTO, TaskDTO } from "@/types";
 
 type SessionLike = {
   _id: { toString(): string };
+  userId: { toString(): string };
   taskId: { toString(): string } | string;
   duration: number;
   pointsEarned: number;
@@ -16,6 +19,7 @@ type SessionLike = {
 
 type TaskLike = {
   _id: { toString(): string };
+  userId: { toString(): string };
   title: string;
   description?: string;
   focusMinutes: number;
@@ -27,6 +31,7 @@ type TaskLike = {
 function serializeSession(session: SessionLike): SessionDTO {
   return {
     _id: session._id.toString(),
+    userId: session.userId.toString(),
     taskId:
       typeof session.taskId === "string" ? session.taskId : session.taskId.toString(),
     duration: session.duration,
@@ -39,6 +44,7 @@ function serializeSession(session: SessionLike): SessionDTO {
 function serializeTask(task: TaskLike): TaskDTO {
   return {
     _id: task._id.toString(),
+    userId: task.userId.toString(),
     title: task.title,
     description: task.description ?? "",
     focusMinutes: task.focusMinutes,
@@ -49,6 +55,14 @@ function serializeTask(task: TaskLike): TaskDTO {
 }
 
 export async function GET(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to view sessions." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
   const { searchParams } = new URL(request.url);
@@ -63,6 +77,7 @@ export async function GET(request: Request) {
   const startIso = startDate.toISOString().slice(0, 10);
 
   const sessions = (await SessionModel.find({
+    userId: session.user.id,
     date: { $gte: startIso },
   })
     .sort({ date: -1, createdAt: -1 })
@@ -72,6 +87,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to log sessions." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
   const payload = await request.json();
@@ -104,7 +127,7 @@ export async function POST(request: Request) {
 
   const sessionDate = dateIso ?? new Date().toISOString().slice(0, 10);
 
-  const task = await TaskModel.findById(taskId);
+  const task = await TaskModel.findOne({ _id: taskId, userId: session.user.id });
 
   if (!task) {
     return NextResponse.json(
@@ -113,7 +136,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await SessionModel.create({
+  const userObjectId = new Types.ObjectId(session.user.id);
+
+  const sessionDocument = await SessionModel.create({
+    userId: userObjectId,
     taskId,
     duration: durationMinutes,
     pointsEarned: points,
@@ -130,7 +156,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     {
-      session: serializeSession(session as SessionLike),
+      session: serializeSession(sessionDocument as SessionLike),
       task: serializeTask(task as TaskLike),
     },
     { status: 201 }

@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useSession } from "next-auth/react";
+
 import {
   type CreateTaskPayload,
   type FocusStats,
@@ -54,21 +56,30 @@ async function readErrorMessage(response: Response) {
 }
 
 export function FocusProvider({ children }: { children: ReactNode }) {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const isSessionLoading = status === "loading";
   const [tasks, setTasks] = useState<TaskDTO[]>([]);
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
     const response = await fetch("/api/tasks", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(await readErrorMessage(response));
     }
     const data = await readJson<{ tasks?: TaskDTO[] }>(response);
     setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchSessions = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
     const response = await fetch("/api/sessions?rangeDays=14", {
       cache: "no-store",
     });
@@ -77,9 +88,16 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     }
     const data = await readJson<{ sessions?: SessionDTO[] }>(response);
     setSessions(Array.isArray(data?.sessions) ? data.sessions : []);
-  }, []);
+  }, [isAuthenticated]);
 
   const refresh = useCallback(async () => {
+    if (!isAuthenticated) {
+      setTasks([]);
+      setSessions([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -90,14 +108,25 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchSessions, fetchTasks]);
+  }, [fetchSessions, fetchTasks, isAuthenticated]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (isAuthenticated) {
+      refresh();
+    } else if (!isSessionLoading) {
+      setTasks([]);
+      setSessions([]);
+      setLoading(false);
+    }
+  }, [isAuthenticated, isSessionLoading, refresh]);
 
   const createTask = useCallback(
     async (payload: CreateTaskPayload) => {
+      if (!isAuthenticated) {
+        const message = "Please sign in to manage tasks.";
+        setError(message);
+        throw new Error(message);
+      }
       setError(null);
       const response = await fetch("/api/tasks", {
         method: "POST",
@@ -119,10 +148,15 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         await refresh();
       }
     },
-    [refresh]
+    [isAuthenticated, refresh]
   );
 
   const updateTask = useCallback(async (payload: UpdateTaskPayload) => {
+    if (!isAuthenticated) {
+      const message = "Please sign in to manage tasks.";
+      setError(message);
+      throw new Error(message);
+    }
     setError(null);
     const response = await fetch("/api/tasks", {
       method: "PUT",
@@ -147,9 +181,14 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     } else {
       await refresh();
     }
-  }, [refresh]);
+  }, [isAuthenticated, refresh]);
 
   const deleteTask = useCallback(async (id: string) => {
+    if (!isAuthenticated) {
+      const message = "Please sign in to manage tasks.";
+      setError(message);
+      throw new Error(message);
+    }
     setError(null);
     const response = await fetch(`/api/tasks?id=${id}`, {
       method: "DELETE",
@@ -162,9 +201,14 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     }
 
     setTasks((prev) => prev.filter((task) => task._id !== id));
-  }, []);
+  }, [isAuthenticated]);
 
   const logSession = useCallback(async (payload: LogSessionPayload) => {
+    if (!isAuthenticated) {
+      const message = "Please sign in to log sessions.";
+      setError(message);
+      throw new Error(message);
+    }
     setError(null);
     const response = await fetch("/api/sessions", {
       method: "POST",
@@ -193,7 +237,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         prev.map((existing) => (existing._id === task._id ? task : existing))
       );
     }
-  }, [refresh]);
+  }, [isAuthenticated, refresh]);
 
   const stats: FocusStats = useMemo(() => {
     const today = getTodayIso();

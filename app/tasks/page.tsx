@@ -14,6 +14,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { useFocus } from "@/context/focus-context";
 import type { TaskDTO } from "@/types";
@@ -25,6 +26,8 @@ const taskVariants: Variants = {
 };
 
 export default function TasksPage() {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
   const { tasks, createTask, updateTask, deleteTask, loading, error } = useFocus();
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [title, setTitle] = useState("");
@@ -133,6 +136,33 @@ export default function TasksPage() {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
+        <h1 className="text-2xl font-semibold text-[var(--foreground)]">
+          Sign in to manage your tasks
+        </h1>
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Once you are signed in you can capture focus tasks, adjust goals, and see your progress history.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/register"
+            className="rounded-full bg-[var(--focus)] px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[var(--focus)]/90"
+          >
+            Create account
+          </a>
+          <a
+            href="/login"
+            className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--foreground)]"
+          >
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
@@ -140,7 +170,7 @@ export default function TasksPage() {
           Create a Focus Point task
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Break work into mindful sessions. Set a focus goal and grow your plant as you complete them.
+          Break work into mindful sessions. Set a focus goal and earn Focus Points as you complete them.
         </p>
         <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handleCreateTask}>
           <div className="md:col-span-1">

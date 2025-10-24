@@ -1,5 +1,6 @@
 export interface TaskDTO {
   _id: string;
+  userId: string;
   title: string;
   description?: string;
   focusMinutes: number;
@@ -10,6 +11,7 @@ export interface TaskDTO {
 
 export interface SessionDTO {
   _id: string;
+  userId: string;
   taskId: string;
   duration: number;
   pointsEarned: number;

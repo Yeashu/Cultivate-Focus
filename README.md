@@ -19,7 +19,7 @@ Mindful productivity app that turns focus sessions into a calm growth ritual.
 ```bash
 npm install
 cp .env.local.example .env.local
-# update MONGODB_URI in .env.local
+# update MONGODB_URI and AUTH_SECRET in .env.local
 npm run dev
 ```
 
@@ -29,12 +29,21 @@ Visit `http://localhost:3000` to explore the dashboard, focus timer, and task ma
 
 `MONGODB_URI` must point to a MongoDB Atlas cluster or compatible instance. The connection is established lazily and cached across requests.
 
+`AUTH_SECRET` should be a long random string (e.g. output from `openssl rand -base64 32`) and is used by NextAuth to sign JWTs and sessions.
+
+## 🔐 Authentication Flow
+
+- Email/password accounts stored in MongoDB with bcrypt hashing.
+- Registration lives at `/register`, sign-in at `/login`.
+- Protected routes (`/`, `/timer`, `/tasks`, API endpoints) require authentication and automatically scope data to the signed-in user.
+- Session management powered by NextAuth credential provider with JWT strategy.
+
 ## 📚 Features
 
 - Focus Points system: log sessions tied to tasks, auto-earn points.
 - Animated focus/break timer with custom durations and mindful chime.
 - Task management: create, edit, complete, and track progress toward planned minutes.
-- Growth dashboard with weekly trend chart and plant-themed progress stages.
+- Growth dashboard with weekly trend chart and achievement stages.
 - Responsive, accessibility-conscious UI with calm emerald + amber palette and dark mode toggle.
 
 ## 🧪 Testing & Quality

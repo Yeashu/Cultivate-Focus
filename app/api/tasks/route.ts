@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
+import { Types } from "mongoose";
 
+import { getAuthSession } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { TaskModel } from "@/models/task";
 import type { TaskDTO } from "@/types";
 
 type TaskLike = {
   _id: { toString(): string };
+  userId: { toString(): string };
   title: string;
   description?: string;
   focusMinutes: number;
@@ -17,6 +20,7 @@ type TaskLike = {
 function serializeTask(task: TaskLike): TaskDTO {
   return {
     _id: task._id.toString(),
+    userId: task.userId.toString(),
     title: task.title,
     description: task.description ?? "",
     focusMinutes: task.focusMinutes,
@@ -27,9 +31,19 @@ function serializeTask(task: TaskLike): TaskDTO {
 }
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to load tasks." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
-  const tasks = (await TaskModel.find()
+  const userObjectId = new Types.ObjectId(session.user.id);
+
+  const tasks = (await TaskModel.find({ userId: userObjectId })
     .sort({ createdAt: -1 })
     .lean()) as unknown as TaskLike[];
 
@@ -37,6 +51,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to create tasks." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
   const payload = await request.json();
@@ -60,6 +82,7 @@ export async function POST(request: Request) {
   }
 
   const task = await TaskModel.create({
+    userId: new Types.ObjectId(session.user.id),
     title,
     description,
     focusMinutes,
@@ -72,6 +95,14 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to update tasks." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
   const payload = await request.json();
@@ -109,10 +140,14 @@ export async function PUT(request: Request) {
     updates.completed = Boolean(payload.completed);
   }
 
-  const updatedTask = await TaskModel.findByIdAndUpdate(id, updates, {
+  const updatedTask = await TaskModel.findOneAndUpdate(
+    { _id: id, userId: session.user.id },
+    updates,
+    {
     new: true,
     runValidators: true,
-  });
+    }
+  );
 
   if (!updatedTask) {
     return NextResponse.json(
@@ -125,6 +160,14 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to delete tasks." },
+      { status: 401 }
+    );
+  }
+
   await connectToDatabase();
 
   const { searchParams } = new URL(request.url);
@@ -137,7 +180,10 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const task = await TaskModel.findByIdAndDelete(id);
+  const task = await TaskModel.findOneAndDelete({
+    _id: id,
+    userId: session.user.id,
+  });
 
   if (!task) {
     return NextResponse.json(

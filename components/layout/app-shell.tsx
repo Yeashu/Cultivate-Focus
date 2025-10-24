@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Sprout, Timer, ListTodo } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { OnboardingGuide } from "@/components/tutorial/onboarding-guide";
+import { UserMenu } from "@/components/layout/user-menu";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -73,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
             <OnboardingGuide />
             <ThemeToggle />
+            <UserMenu />
           </div>
         </header>
         <main className="flex-1">

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   TimerIcon,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { useFocus } from "@/context/focus-context";
 import { calculateFocusPoints } from "@/lib/points";
@@ -74,6 +75,8 @@ function useChime() {
 }
 
 export default function TimerPage() {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
   const { tasks, logSession, sessions } = useFocus();
   const [mode, setMode] = useState<"focus" | "break">("focus");
   const [focusDuration, setFocusDuration] = useState(25);
@@ -169,6 +172,33 @@ export default function TimerPage() {
   };
 
   const recentSessions = useMemo(() => sessions.slice(0, 4), [sessions]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
+        <h1 className="text-2xl font-semibold text-[var(--foreground)]">
+          Sign in to start focus sessions
+        </h1>
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Use your account to time focus and break blocks, earn Focus Points, and keep a session history.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/register"
+            className="rounded-full bg-[var(--focus)] px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[var(--focus)]/90"
+          >
+            Create account
+          </a>
+          <a
+            href="/login"
+            className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--foreground)]"
+          >
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-[2fr,1fr]">
