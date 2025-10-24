@@ -35,6 +35,24 @@ interface FocusContextValue {
 
 const FocusContext = createContext<FocusContextValue | undefined>(undefined);
 
+async function readJson<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    if (response.status === 204) {
+      return null;
+    }
+    console.warn("Failed to parse JSON response", error);
+    return null;
+  }
+}
+
+async function readErrorMessage(response: Response) {
+  const data = await readJson<{ message?: string }>(response);
+  const fallback = response.statusText || "Unexpected error";
+  return data?.message ?? fallback;
+}
+
 export function FocusProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<TaskDTO[]>([]);
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
@@ -44,10 +62,10 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   const fetchTasks = useCallback(async () => {
     const response = await fetch("/api/tasks", { cache: "no-store" });
     if (!response.ok) {
-      throw new Error((await response.json()).message ?? "Failed to load tasks");
+      throw new Error(await readErrorMessage(response));
     }
-    const data = await response.json();
-    setTasks(data.tasks ?? []);
+    const data = await readJson<{ tasks?: TaskDTO[] }>(response);
+    setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
   }, []);
 
   const fetchSessions = useCallback(async () => {
@@ -55,12 +73,10 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       cache: "no-store",
     });
     if (!response.ok) {
-      throw new Error(
-        (await response.json()).message ?? "Failed to load sessions"
-      );
+      throw new Error(await readErrorMessage(response));
     }
-    const data = await response.json();
-    setSessions(data.sessions ?? []);
+    const data = await readJson<{ sessions?: SessionDTO[] }>(response);
+    setSessions(Array.isArray(data?.sessions) ? data.sessions : []);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -90,16 +106,20 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const body = await response.json();
-        const message = body.message ?? "Failed to create task";
+        const message = await readErrorMessage(response);
         setError(message);
         throw new Error(message);
       }
 
-      const { task } = await response.json();
-      setTasks((prev) => [task, ...prev]);
+      const data = await readJson<{ task?: TaskDTO }>(response);
+      if (data?.task) {
+        const task = data.task;
+        setTasks((prev) => [task, ...prev]);
+      } else {
+        await refresh();
+      }
     },
-    []
+    [refresh]
   );
 
   const updateTask = useCallback(async (payload: UpdateTaskPayload) => {
@@ -111,17 +131,23 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      const body = await response.json();
-      const message = body.message ?? "Failed to update task";
+      const message = await readErrorMessage(response);
       setError(message);
       throw new Error(message);
     }
 
-    const { task } = await response.json();
-    setTasks((prev) =>
-      prev.map((existing) => (existing._id === task._id ? task : existing))
-    );
-  }, []);
+    const data = await readJson<{ task?: TaskDTO }>(response);
+    if (data?.task) {
+      const updatedTask = data.task;
+      setTasks((prev) =>
+        prev.map((existing) =>
+          existing._id === updatedTask._id ? updatedTask : existing
+        )
+      );
+    } else {
+      await refresh();
+    }
+  }, [refresh]);
 
   const deleteTask = useCallback(async (id: string) => {
     setError(null);
@@ -130,8 +156,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      const body = await response.json();
-      const message = body.message ?? "Failed to delete task";
+      const message = await readErrorMessage(response);
       setError(message);
       throw new Error(message);
     }
@@ -148,21 +173,27 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      const body = await response.json();
-      const message = body.message ?? "Failed to log session";
+      const message = await readErrorMessage(response);
       setError(message);
       throw new Error(message);
     }
 
-    const data = await response.json();
-    const { session, task } = data;
-    setSessions((prev) => [session, ...prev]);
+    const data = await readJson<{ session?: SessionDTO; task?: TaskDTO }>(
+      response
+    );
+    const session = data?.session;
+    if (session) {
+      setSessions((prev) => [session, ...prev]);
+    } else {
+      await refresh();
+    }
+    const task = data?.task;
     if (task) {
       setTasks((prev) =>
         prev.map((existing) => (existing._id === task._id ? task : existing))
       );
     }
-  }, []);
+  }, [refresh]);
 
   const stats: FocusStats = useMemo(() => {
     const today = getTodayIso();
