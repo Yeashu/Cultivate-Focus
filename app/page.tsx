@@ -12,11 +12,7 @@ import { PlantGrowth } from "@/components/dashboard/plant-growth";
 import { WeeklyProgress } from "@/components/dashboard/weekly-progress";
 import { useFocus } from "@/context/focus-context";
 import { formatDateLabel, getTodayIso } from "@/lib/dates";
-import { useSession } from "next-auth/react";
-
 export default function DashboardPage() {
-  const { status } = useSession();
-  const isAuthenticated = status === "authenticated";
   const { stats, tasks, loading, error } = useFocus();
 
   const totalPoints = tasks.reduce((sum, task) => sum + task.earnedPoints, 0);
@@ -26,35 +22,6 @@ export default function DashboardPage() {
     .sort((a, b) => b.earnedPoints - a.earnedPoints)
     .slice(0, 3);
   const todayIso = getTodayIso();
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col gap-6">
-        <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
-          <h1 className="text-2xl font-semibold text-[var(--foreground)]">
-            Sign in to start cultivating your focus
-          </h1>
-          <p className="mt-3 text-sm text-[var(--muted)]">
-            Create an account or log in to manage tasks, run focus sessions, and track your progress on this dashboard.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="/register"
-              className="rounded-full bg-[var(--focus)] px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[var(--focus)]/90"
-            >
-              Create account
-            </a>
-            <a
-              href="/login"
-              className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--foreground)]"
-            >
-              Sign in
-            </a>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-8">
