@@ -73,6 +73,94 @@ function useChime() {
   return play;
 }
 
+function useNotifications() {
+  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission);
+    }
+    // Create audio element for notification sound
+    if (typeof window !== "undefined") {
+      audioRef.current = new Audio();
+    }
+  }, []);
+
+  const requestPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return;
+    }
+
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+    } catch (error) {
+      console.warn("Unable to request notification permission", error);
+    }
+  };
+
+  const playNotificationSound = () => {
+    try {
+      if (audioRef.current) {
+        // Create a pleasant notification sound using Web Audio API
+        const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+        
+        // Play a pleasant two-tone chime
+        const playTone = (frequency: number, startTime: number, duration: number) => {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + startTime);
+
+          gainNode.gain.setValueAtTime(0.001, audioContext.currentTime + startTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.3, audioContext.currentTime + startTime + 0.02);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + startTime + duration);
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.start(audioContext.currentTime + startTime);
+          oscillator.stop(audioContext.currentTime + startTime + duration);
+        };
+
+        // Play a pleasant melody: C5 -> E5 -> G5
+        playTone(523.25, 0, 0.3);    // C5
+        playTone(659.25, 0.15, 0.3); // E5
+        playTone(783.99, 0.3, 0.5);  // G5
+      }
+    } catch (error) {
+      console.warn("Unable to play notification sound", error);
+    }
+  };
+
+  const showNotification = (title: string, body: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return;
+    }
+
+    // Play sound regardless of notification permission
+    playNotificationSound();
+
+    if (Notification.permission === "granted") {
+      try {
+        new Notification(title, {
+          body,
+          icon: "/icon-192x192.png",
+          badge: "/icon-192x192.png",
+          tag: "cultivate-focus-timer",
+          requireInteraction: false,
+        });
+      } catch (error) {
+        console.warn("Unable to show notification", error);
+      }
+    }
+  };
+
+  return { permission, requestPermission, showNotification };
+}
+
 export default function TimerPage() {
   const { tasks, logSession, sessions } = useFocus();
   const [mode, setMode] = useState<"focus" | "break">("focus");
@@ -85,6 +173,7 @@ export default function TimerPage() {
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const playChime = useChime();
+  const { permission, requestPermission, showNotification } = useNotifications();
 
   const totalSeconds = mode === "focus" ? focusDuration * 60 : breakDuration * 60;
   const progress = Math.min(1, Math.max(0, 1 - timeLeft / totalSeconds));
@@ -124,12 +213,16 @@ export default function TimerPage() {
   }, [tasks, selectedTaskId]);
 
   const handleCompletion = async () => {
-    playChime();
     const todayIso = getTodayIso();
 
     if (mode === "focus") {
       if (!selectedTaskId) {
         setStatusMessage("Focus session ended. Select a task to log progress.");
+        showNotification(
+          "Focus Session Complete! 🌿",
+          "Great work! Select a task to log your progress."
+        );
+        playChime();
         return;
       }
 
@@ -140,7 +233,14 @@ export default function TimerPage() {
           pointsEarned: calculateFocusPoints(totalSeconds / 60),
           date: todayIso,
         });
+        const taskTitle = tasks.find((task) => task._id === selectedTaskId)?.title ?? "Task";
+        const pointsEarned = calculateFocusPoints(totalSeconds / 60);
         setStatusMessage("Session logged and Focus Points added! Remember to take a mindful break.");
+        showNotification(
+          "Focus Session Complete! 🎯",
+          `${taskTitle}: +${pointsEarned} Focus Points earned! Time for a mindful break.`
+        );
+        playChime();
       } catch (error) {
         setStatusMessage(
           error instanceof Error ? error.message : "Unable to log session right now."
@@ -148,6 +248,11 @@ export default function TimerPage() {
       }
     } else {
       setStatusMessage("Break finished. Ready to refocus when you are.");
+      showNotification(
+        "Break Complete! ☕",
+        "Feeling refreshed? Ready to start another focus session."
+      );
+      playChime();
     }
 
     setMode((prev) => (prev === "focus" ? "break" : "focus"));
@@ -202,6 +307,15 @@ export default function TimerPage() {
           >
             Break Mode
           </button>
+          {permission !== "granted" && (
+            <button
+              type="button"
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--focus)] hover:text-[var(--focus)]"
+              onClick={requestPermission}
+            >
+              🔔 Enable Notifications
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-lg" style={{ boxShadow: "var(--shadow)" }}>
