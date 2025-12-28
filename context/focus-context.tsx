@@ -92,6 +92,7 @@ function normalizeTask(raw: StoredTask): TaskDTO | null {
         ? Math.round(focusMinutesGoal)
         : null,
     scheduledDate,
+    order: typeof raw.order === "number" ? raw.order : undefined,
     completed: Boolean(raw.completed),
     earnedPoints:
       Number.isFinite(earnedPointsNumber) && earnedPointsNumber > 0
@@ -380,6 +381,10 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                 payload.scheduledDate !== undefined
                   ? payload.scheduledDate
                   : task.scheduledDate,
+              order:
+                payload.order !== undefined
+                  ? payload.order
+                  : task.order,
               completed:
                 payload.completed !== undefined
                   ? Boolean(payload.completed)

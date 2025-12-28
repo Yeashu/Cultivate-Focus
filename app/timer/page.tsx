@@ -1,6 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Pause,
@@ -161,14 +163,15 @@ function useNotifications() {
   return { permission, requestPermission, showNotification };
 }
 
-export default function TimerPage() {
+function TimerContent() {
   const { tasks, logSession, sessions } = useFocus();
+  const searchParams = useSearchParams();
+  const taskIdFromUrl = searchParams.get("taskId");
+  
   const [mode, setMode] = useState<"focus" | "break">("focus");
   const [focusDuration, setFocusDuration] = useState(25);
   const [breakDuration, setBreakDuration] = useState(5);
-  const [selectedTaskId, setSelectedTaskId] = useState<string>(
-    tasks.find((task) => !task.completed)?._id ?? ""
-  );
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -177,6 +180,23 @@ export default function TimerPage() {
 
   const totalSeconds = mode === "focus" ? focusDuration * 60 : breakDuration * 60;
   const progress = Math.min(1, Math.max(0, 1 - timeLeft / totalSeconds));
+
+  // Set selected task from URL or find first incomplete task
+  useEffect(() => {
+    if (taskIdFromUrl) {
+      // If taskId is in URL, use it (verify it exists in tasks)
+      const taskExists = tasks.some((t) => t._id === taskIdFromUrl);
+      if (taskExists) {
+        setSelectedTaskId(taskIdFromUrl);
+        return;
+      }
+    }
+    // Fallback: select first incomplete task
+    if (!selectedTaskId && tasks.length > 0) {
+      const nextTask = tasks.find((task) => !task.completed) ?? tasks[0];
+      setSelectedTaskId(nextTask?._id ?? "");
+    }
+  }, [taskIdFromUrl, tasks, selectedTaskId]);
 
   useEffect(() => {
     setTimeLeft((mode === "focus" ? focusDuration : breakDuration) * 60);
@@ -204,13 +224,6 @@ export default function TimerPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, mode, totalSeconds]);
-
-  useEffect(() => {
-    if (!selectedTaskId && tasks.length > 0) {
-      const nextTask = tasks.find((task) => !task.completed) ?? tasks[0];
-      setSelectedTaskId(nextTask?._id ?? "");
-    }
-  }, [tasks, selectedTaskId]);
 
   const handleCompletion = async () => {
     const todayIso = getTodayIso();
@@ -495,5 +508,19 @@ export default function TimerPage() {
         </div>
       </aside>
     </div>
+  );
+}
+
+export default function TimerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--focus)]" />
+        </div>
+      }
+    >
+      <TimerContent />
+    </Suspense>
   );
 }
