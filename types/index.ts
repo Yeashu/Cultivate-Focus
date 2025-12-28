@@ -7,7 +7,7 @@ export interface TaskDTO {
   focusMinutes?: number;
   /** Optional focus goal in minutes (null/undefined means no goal) */
   focusMinutesGoal?: number | null;
-  /** Scheduled date for weekly view (YYYY-MM-DD) */
+  /** Scheduled date for weekly view (YYYY-MM-DD) or "someday" for backlog */
   scheduledDate: string;
   /** Order within the day (lower = higher in list) */
   order?: number;

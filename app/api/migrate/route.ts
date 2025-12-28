@@ -6,11 +6,11 @@ import { TaskModel } from "@/models/task";
 
 /**
  * One-time migration endpoint to update existing tasks with new fields:
- * - scheduledDate: set from createdAt date
+ * - scheduledDate: set from createdAt date (or "someday" if too old)
  * - focusMinutesGoal: copied from focusMinutes if not already set
  *
  * Call this once via: GET /api/migrate
- * Protected: requires authenticated admin user
+ * Protected: requires authenticated user
  */
 export async function GET() {
   const session = await getAuthSession();
@@ -25,22 +25,37 @@ export async function GET() {
 
   // Find all tasks that need migration (missing scheduledDate)
   const tasksToMigrate = await TaskModel.find({
+    userId: session.user.id,
     $or: [
       { scheduledDate: { $exists: false } },
       { scheduledDate: null },
     ],
   });
 
-  let migratedCount = 0;
+  let migratedToWeek = 0;
+  let migratedToSomeday = 0;
   const errors: string[] = [];
+
+  // Determine scheduling logic:
+  // - Tasks created in the last 14 days: schedule on their createdAt date
+  // - Older tasks or tasks without createdAt: move to "someday"
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
   for (const task of tasksToMigrate) {
     try {
-      // Set scheduledDate from createdAt (YYYY-MM-DD format)
       const createdAt = task.createdAt as Date | undefined;
-      const scheduledDate = createdAt
-        ? createdAt.toISOString().slice(0, 10)
-        : new Date().toISOString().slice(0, 10);
+      let scheduledDate: string;
+
+      if (createdAt && createdAt >= twoWeeksAgo) {
+        // Recent task: schedule on creation date
+        scheduledDate = createdAt.toISOString().slice(0, 10);
+        migratedToWeek++;
+      } else {
+        // Old or undated task: move to someday
+        scheduledDate = "someday";
+        migratedToSomeday++;
+      }
 
       // Copy focusMinutes to focusMinutesGoal if not already set
       const focusMinutes = task.focusMinutes as number | undefined;
@@ -59,8 +74,6 @@ export async function GET() {
           },
         }
       );
-
-      migratedCount++;
     } catch (err) {
       const taskId = task._id?.toString() ?? "unknown";
       const errorMessage =
@@ -71,9 +84,10 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    message: `Migration complete. Migrated ${migratedCount} tasks.`,
+    message: `Migration complete. Migrated ${migratedToWeek} tasks to weekly grid, ${migratedToSomeday} to Someday.`,
     totalFound: tasksToMigrate.length,
-    migratedCount,
+    migratedToWeek,
+    migratedToSomeday,
     errors: errors.length > 0 ? errors : undefined,
   });
 }
