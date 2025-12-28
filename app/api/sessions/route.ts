@@ -188,3 +188,78 @@ export async function POST(request: Request) {
     { status: 201 }
   );
 }
+
+export async function PUT(request: Request) {
+  const session = await getAuthSession();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "You must be signed in to update sessions." },
+      { status: 401 }
+    );
+  }
+
+  await connectToDatabase();
+
+  const payload = await request.json();
+  const { id, taskId } = payload ?? {};
+
+  if (!id || typeof id !== "string") {
+    return NextResponse.json(
+      { message: "Session ID is required." },
+      { status: 400 }
+    );
+  }
+
+  // Find the session
+  const sessionDoc = await SessionModel.findOne({
+    _id: id,
+    userId: session.user.id,
+  });
+
+  if (!sessionDoc) {
+    return NextResponse.json(
+      { message: "Session not found." },
+      { status: 404 }
+    );
+  }
+
+  // If linking to a task, validate the task exists
+  let task = null;
+  if (taskId && typeof taskId === "string") {
+    task = await TaskModel.findOne({ _id: taskId, userId: session.user.id });
+    if (!task) {
+      return NextResponse.json(
+        { message: "Task not found." },
+        { status: 404 }
+      );
+    }
+  }
+
+  const oldTaskId = sessionDoc.taskId;
+  
+  // Update the session's taskId
+  sessionDoc.taskId = taskId ?? null;
+  await sessionDoc.save();
+
+  // If we're linking to a new task, update its earned points
+  if (task && (!oldTaskId || oldTaskId.toString() !== taskId)) {
+    task.earnedPoints += sessionDoc.pointsEarned;
+
+    // Check completion
+    const goal = task.focusMinutesGoal ?? task.focusMinutes;
+    if (!task.completed && goal && task.earnedPoints >= goal) {
+      task.completed = true;
+    }
+
+    await task.save();
+
+    return NextResponse.json({
+      session: serializeSession(sessionDoc as SessionLike),
+      task: serializeTask(task as TaskLike),
+    });
+  }
+
+  return NextResponse.json({
+    session: serializeSession(sessionDoc as SessionLike),
+  });
+}

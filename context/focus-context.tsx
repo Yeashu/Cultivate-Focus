@@ -17,6 +17,7 @@ import {
   type LogSessionPayload,
   type SessionDTO,
   type TaskDTO,
+  type UpdateSessionPayload,
   type UpdateTaskPayload,
 } from "@/types";
 import { getPastDates, getTodayIso } from "@/lib/dates";
@@ -182,6 +183,7 @@ interface FocusContextValue {
   updateTask: (payload: UpdateTaskPayload) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   logSession: (payload: LogSessionPayload) => Promise<void>;
+  updateSession: (payload: UpdateSessionPayload) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -567,6 +569,95 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const updateSession = useCallback(
+    async (payload: UpdateSessionPayload) => {
+      setError(null);
+
+      if (!isAuthenticated) {
+        if (!storageInitialized) {
+          loadLocalState();
+        }
+        setSessions((prev) => {
+          const next = prev.map((session) => {
+            if (session._id !== payload.id) {
+              return session;
+            }
+            const updated: SessionDTO = {
+              ...session,
+              taskId: payload.taskId !== undefined ? payload.taskId ?? null : session.taskId,
+            };
+            return updated;
+          });
+          persistLocalSessions(next);
+          return next;
+        });
+
+        // If linking to a task, update the task's earned points
+        if (payload.taskId) {
+          const sessionToUpdate = sessions.find(s => s._id === payload.id);
+          if (sessionToUpdate) {
+            setTasks((prev) => {
+              const next = prev.map((task) => {
+                if (task._id !== payload.taskId) {
+                  return task;
+                }
+                const updatedPoints = task.earnedPoints + sessionToUpdate.pointsEarned;
+                const goal = task.focusMinutesGoal;
+                const completed = task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+                return {
+                  ...task,
+                  earnedPoints: updatedPoints,
+                  completed,
+                };
+              });
+              persistLocalTasks(next);
+              return next;
+            });
+          }
+        }
+        return;
+      }
+
+      const response = await fetch("/api/sessions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const message = await readErrorMessage(response);
+        setError(message);
+        throw new Error(message);
+      }
+
+      const data = await readJson<{ session?: SessionDTO; task?: TaskDTO }>(response);
+      if (data?.session) {
+        const updatedSession = data.session;
+        setSessions((prev) =>
+          prev.map((existing) =>
+            existing._id === updatedSession._id ? updatedSession : existing
+          )
+        );
+      }
+      if (data?.task) {
+        const updatedTask = data.task;
+        setTasks((prev) =>
+          prev.map((existing) =>
+            existing._id === updatedTask._id ? updatedTask : existing
+          )
+        );
+      }
+    },
+    [
+      isAuthenticated,
+      loadLocalState,
+      persistLocalSessions,
+      persistLocalTasks,
+      sessions,
+      storageInitialized,
+    ]
+  );
+
   const stats: FocusStats = useMemo(() => {
     const today = getTodayIso();
     const todaySessions = sessions.filter((session) => session.date === today);
@@ -613,6 +704,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     updateTask,
     deleteTask,
     logSession,
+    updateSession,
     refresh,
   };
 
