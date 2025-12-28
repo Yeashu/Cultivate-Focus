@@ -13,8 +13,8 @@ interface DayColumnProps {
   onDragStart: (task: TaskDTO) => void;
   onDragEnd: () => void;
   onDrop: () => void;
-  onCreateTask: (title: string) => Promise<void>;
-  onUpdateTask: (taskId: string, title: string) => Promise<void>;
+  onCreateTask: (title: string, focusMinutesGoal?: number) => Promise<void>;
+  onUpdateTask: (taskId: string, title: string, focusMinutesGoal?: number) => Promise<void>;
   onToggleComplete: (task: TaskDTO) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onReorderTasks: (taskIds: string[]) => Promise<void>;
@@ -112,10 +112,23 @@ export function DayColumn({
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  // Parse "@30" or "@30m" suffix to extract focus minutes goal
+  const parseTaskInput = (input: string): { title: string; focusMinutesGoal?: number } => {
+    const match = input.match(/^(.+?)\s*@(\d+)m?\s*$/);
+    if (match) {
+      const title = match[1].trim();
+      const minutes = parseInt(match[2], 10);
+      if (title && minutes > 0 && minutes <= 600) {
+        return { title, focusMinutesGoal: minutes };
+      }
+    }
+    return { title: input.trim() };
+  };
+
   const handleCreateSubmit = async () => {
-    const trimmed = newTaskTitle.trim();
-    if (trimmed) {
-      await onCreateTask(trimmed);
+    const { title, focusMinutesGoal } = parseTaskInput(newTaskTitle);
+    if (title) {
+      await onCreateTask(title, focusMinutesGoal);
     }
     setNewTaskTitle("");
     setIsCreating(false);
@@ -156,7 +169,7 @@ export function DayColumn({
             onDragStart={() => handleInternalDragStart(task)}
             onDragEnd={handleInternalDragEnd}
             onDragOver={() => handleTaskDragOver(index)}
-            onUpdate={(title: string) => onUpdateTask(task._id, title)}
+            onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
             onToggleComplete={() => onToggleComplete(task)}
             onDelete={() => onDeleteTask(task._id)}
           />
@@ -173,7 +186,7 @@ export function DayColumn({
               onBlur={handleCreateSubmit}
               onKeyDown={handleKeyDown}
               className="task-input"
-              placeholder="New task..."
+              placeholder="Task name @25 for 25min goal"
             />
           </div>
         ) : (
@@ -194,7 +207,7 @@ export function DayColumn({
             isPast={isPast}
             onDragStart={() => handleInternalDragStart(task)}
             onDragEnd={handleInternalDragEnd}
-            onUpdate={(title: string) => onUpdateTask(task._id, title)}
+            onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
             onToggleComplete={() => onToggleComplete(task)}
             onDelete={() => onDeleteTask(task._id)}
           />

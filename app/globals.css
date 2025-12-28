@@ -228,6 +228,14 @@ body {
   word-break: break-word;
 }
 
+.task-goal {
+  margin-left: 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--focus);
+  opacity: 0.7;
+}
+
 /* Task Input - Seamless editing */
 .task-input {
   flex: 1;

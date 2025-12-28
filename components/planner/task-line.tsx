@@ -12,10 +12,23 @@ interface TaskLineProps {
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver?: () => void;
-  onUpdate: (title: string) => Promise<void>;
+  onUpdate: (title: string, focusMinutesGoal?: number) => Promise<void>;
   onToggleComplete: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
+
+// Parse "@30" or "@30m" suffix to extract focus minutes goal
+const parseTaskInput = (input: string): { title: string; focusMinutesGoal?: number } => {
+  const match = input.match(/^(.+?)\s*@(\d+)m?\s*$/);
+  if (match) {
+    const title = match[1].trim();
+    const minutes = parseInt(match[2], 10);
+    if (title && minutes > 0 && minutes <= 600) {
+      return { title, focusMinutesGoal: minutes };
+    }
+  }
+  return { title: input.trim() };
+};
 
 export function TaskLine({
   task,
@@ -51,19 +64,29 @@ export function TaskLine({
     onDragOver?.();
   };
 
+  // Build display value with goal suffix
+  const getEditDisplayValue = () => {
+    if (task.focusMinutesGoal) {
+      return `${task.title} @${task.focusMinutesGoal}m`;
+    }
+    return task.title;
+  };
+
   const handleClick = () => {
     if (!isEditing) {
       setIsEditing(true);
-      setEditValue(task.title);
+      setEditValue(getEditDisplayValue());
     }
   };
 
   const handleBlur = async () => {
-    const trimmed = editValue.trim();
-    if (trimmed && trimmed !== task.title) {
-      await onUpdate(trimmed);
+    const parsed = parseTaskInput(editValue);
+    const originalDisplay = getEditDisplayValue();
+    // Only update if something changed
+    if (parsed.title && editValue.trim() !== originalDisplay) {
+      await onUpdate(parsed.title, parsed.focusMinutesGoal);
     } else {
-      setEditValue(task.title);
+      setEditValue(getEditDisplayValue());
     }
     setIsEditing(false);
   };
@@ -72,7 +95,7 @@ export function TaskLine({
     if (e.key === "Enter") {
       await handleBlur();
     } else if (e.key === "Escape") {
-      setEditValue(task.title);
+      setEditValue(getEditDisplayValue());
       setIsEditing(false);
     }
   };
@@ -119,6 +142,9 @@ export function TaskLine({
       ) : (
         <span className="task-title" onClick={handleClick}>
           {task.title}
+          {task.focusMinutesGoal && (
+            <span className="task-goal">@{task.focusMinutesGoal}m</span>
+          )}
         </span>
       )}
 

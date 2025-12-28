@@ -89,15 +89,15 @@ export function WeeklyPlanner() {
   }, [draggedTask, updateTask]);
 
   const handleCreateTask = useCallback(
-    async (title: string, scheduledDate: string) => {
-      await createTask({ title, scheduledDate });
+    async (title: string, scheduledDate: string, focusMinutesGoal?: number) => {
+      await createTask({ title, scheduledDate, focusMinutesGoal: focusMinutesGoal ?? null });
     },
     [createTask]
   );
 
   const handleUpdateTask = useCallback(
-    async (taskId: string, title: string) => {
-      await updateTask({ id: taskId, title });
+    async (taskId: string, title: string, focusMinutesGoal?: number) => {
+      await updateTask({ id: taskId, title, focusMinutesGoal: focusMinutesGoal ?? null });
     },
     [updateTask]
   );
@@ -179,7 +179,7 @@ export function WeeklyPlanner() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDrop={() => handleDropOnDay(iso)}
-            onCreateTask={(title: string) => handleCreateTask(title, iso)}
+            onCreateTask={(title: string, focusMinutesGoal?: number) => handleCreateTask(title, iso, focusMinutesGoal)}
             onUpdateTask={handleUpdateTask}
             onToggleComplete={handleToggleComplete}
             onDeleteTask={handleDeleteTask}
@@ -194,7 +194,7 @@ export function WeeklyPlanner() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDrop={handleDropOnSomeday}
-        onCreateTask={(title: string) => handleCreateTask(title, "someday")}
+        onCreateTask={(title: string, focusMinutesGoal?: number) => handleCreateTask(title, "someday", focusMinutesGoal)}
         onUpdateTask={handleUpdateTask}
         onToggleComplete={handleToggleComplete}
         onDeleteTask={handleDeleteTask}
