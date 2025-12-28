@@ -37,3 +37,325 @@ body {
     "Segoe UI", sans-serif;
   min-height: 100vh;
 }
+
+/* ========================================
+   Weekly Planner - Paper Spread Aesthetic
+   ======================================== */
+
+.weekly-planner {
+  --paper-line: var(--border);
+  --paper-line-subtle: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+/* Week Grid - 7 columns like an open planner */
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+  min-height: 420px;
+}
+
+@media (max-width: 900px) {
+  .week-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Day Column - Vertical lines, no boxes */
+.day-column {
+  position: relative;
+  padding: 0.75rem 1rem 1.5rem;
+  border-right: 1px solid var(--paper-line-subtle);
+  transition: background-color 0.15s ease;
+}
+
+.day-column:last-child {
+  border-right: none;
+}
+
+.day-column--drop-target {
+  background-color: var(--focus-soft);
+}
+
+/* Day Header - Typography focus */
+.day-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--paper-line-subtle);
+}
+
+.day-header--today {
+  border-bottom-color: var(--focus);
+}
+
+.day-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.day-number {
+  font-size: 1.75rem;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--foreground);
+  margin-top: 0.125rem;
+}
+
+.day-number--today {
+  color: var(--focus);
+  font-weight: 500;
+}
+
+/* Task List Container */
+.day-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+/* Task Line - Handwritten feel */
+.task-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  cursor: grab;
+  transition: opacity 0.15s ease;
+}
+
+.task-line:active {
+  cursor: grabbing;
+}
+
+.task-line--completed {
+  opacity: 0.45;
+}
+
+.task-line--completed .task-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.task-line--overdue {
+  color: var(--break);
+}
+
+.task-line--overdue .task-title {
+  color: var(--break);
+  font-style: italic;
+}
+
+.task-line--creating {
+  padding: 0;
+}
+
+/* Drag Handle - Invisible until hover */
+.task-handle {
+  position: absolute;
+  left: -1rem;
+  opacity: 0;
+  color: var(--muted);
+  cursor: grab;
+  transition: opacity 0.15s ease;
+}
+
+.task-handle--visible {
+  opacity: 0.4;
+}
+
+.task-handle--visible:hover {
+  opacity: 0.7;
+}
+
+/* Checkbox - Minimal circle */
+.task-checkbox {
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.task-checkbox-inner {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  transition: all 0.15s ease;
+}
+
+.task-checkbox:hover .task-checkbox-inner {
+  border-color: var(--focus);
+}
+
+.task-checkbox-inner--checked {
+  background-color: var(--focus);
+  border-color: var(--focus);
+}
+
+/* Task Title - Typography focus */
+.task-title {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--foreground);
+  line-height: 1.4;
+  cursor: text;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Task Input - Seamless editing */
+.task-input {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  line-height: 1.4;
+  width: 100%;
+}
+
+.task-input::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.task-input--inline {
+  background: var(--focus-soft);
+  margin: -0.25rem -0.375rem;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+/* Task Actions - Contextual reveal */
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.task-actions--visible {
+  opacity: 1;
+}
+
+.task-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.task-action--play {
+  color: var(--focus);
+}
+
+.task-action--play:hover {
+  background: var(--focus-soft);
+}
+
+.task-action--delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Add Task Zone - Ghost button */
+.add-task-zone {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-task-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.add-task-zone:hover .add-task-hint,
+.add-task-zone:focus .add-task-hint {
+  opacity: 0.6;
+}
+
+/* Someday Horizon - Undated section */
+.someday-horizon {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--paper-line);
+  transition: background-color 0.15s ease;
+}
+
+.someday-horizon--drop-target {
+  background-color: var(--focus-soft);
+  border-radius: 0.5rem;
+  margin: 2.5rem -0.5rem 0;
+  padding: 1.5rem 0.5rem 0.5rem;
+}
+
+.someday-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.someday-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.someday-hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.5;
+  margin-left: auto;
+}
+
+.someday-tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.25rem 1.5rem;
+}
+
+.add-task-zone--someday {
+  grid-column: 1;
+}
+

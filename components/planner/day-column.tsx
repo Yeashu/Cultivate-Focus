@@ -1,0 +1,155 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { TaskLine } from "./task-line";
+import type { TaskDTO } from "@/types";
+
+interface DayColumnProps {
+  date: Date;
+  dateIso: string;
+  isToday: boolean;
+  isPast: boolean;
+  tasks: TaskDTO[];
+  onDragStart: (task: TaskDTO) => void;
+  onDragEnd: () => void;
+  onDrop: () => void;
+  onCreateTask: (title: string) => Promise<void>;
+  onUpdateTask: (taskId: string, title: string) => Promise<void>;
+  onToggleComplete: (task: TaskDTO) => Promise<void>;
+  onDeleteTask: (taskId: string) => Promise<void>;
+}
+
+export function DayColumn({
+  date,
+  isToday,
+  isPast,
+  tasks,
+  onDragStart,
+  onDragEnd,
+  onDrop,
+  onCreateTask,
+  onUpdateTask,
+  onToggleComplete,
+  onDeleteTask,
+}: DayColumnProps) {
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+  const dayNumber = date.getDate();
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDropTarget(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDropTarget(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDropTarget(false);
+    onDrop();
+  };
+
+  const handleEmptyClick = () => {
+    setIsCreating(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleCreateSubmit = async () => {
+    const trimmed = newTaskTitle.trim();
+    if (trimmed) {
+      await onCreateTask(trimmed);
+    }
+    setNewTaskTitle("");
+    setIsCreating(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleCreateSubmit();
+    } else if (e.key === "Escape") {
+      setNewTaskTitle("");
+      setIsCreating(false);
+    }
+  };
+
+  // Separate incomplete and completed tasks
+  const incompleteTasks = tasks.filter((t) => !t.completed);
+  const completedTasks = tasks.filter((t) => t.completed);
+
+  return (
+    <div
+      className={`day-column ${isDropTarget ? "day-column--drop-target" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Day Header */}
+      <div className={`day-header ${isToday ? "day-header--today" : ""}`}>
+        <span className="day-name">{dayName}</span>
+        <span className={`day-number ${isToday ? "day-number--today" : ""}`}>
+          {dayNumber}
+        </span>
+      </div>
+
+      {/* Task List */}
+      <div className="day-tasks">
+        {incompleteTasks.map((task) => (
+          <TaskLine
+            key={task._id}
+            task={task}
+            isPast={isPast}
+            onDragStart={() => onDragStart(task)}
+            onDragEnd={onDragEnd}
+            onUpdate={(title: string) => onUpdateTask(task._id, title)}
+            onToggleComplete={() => onToggleComplete(task)}
+            onDelete={() => onDeleteTask(task._id)}
+          />
+        ))}
+
+        {/* Inline Create */}
+        {isCreating ? (
+          <div className="task-line task-line--creating">
+            <input
+              ref={inputRef}
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onBlur={handleCreateSubmit}
+              onKeyDown={handleKeyDown}
+              className="task-input"
+              placeholder="New task..."
+            />
+          </div>
+        ) : (
+          <button
+            className="add-task-zone"
+            onClick={handleEmptyClick}
+            aria-label="Add task"
+          >
+            <span className="add-task-hint">+ Add task</span>
+          </button>
+        )}
+
+        {/* Completed tasks at bottom, faded */}
+        {completedTasks.map((task) => (
+          <TaskLine
+            key={task._id}
+            task={task}
+            isPast={isPast}
+            onDragStart={() => onDragStart(task)}
+            onDragEnd={onDragEnd}
+            onUpdate={(title: string) => onUpdateTask(task._id, title)}
+            onToggleComplete={() => onToggleComplete(task)}
+            onDelete={() => onDeleteTask(task._id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

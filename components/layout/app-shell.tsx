@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sprout, Timer, ListTodo } from "lucide-react";
+import { LayoutDashboard, Sprout, Timer, Calendar } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { OnboardingGuide } from "@/components/tutorial/onboarding-guide";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -12,7 +12,7 @@ import { LoginPrompt } from "@/components/layout/login-prompt";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Timer", href: "/timer", icon: Timer },
-  { name: "Tasks", href: "/tasks", icon: ListTodo },
+  { name: "Planner", href: "/tasks", icon: Calendar },
 ];
 
 function NavItem({
