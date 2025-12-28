@@ -1,21 +1,35 @@
 # Cultivate Focus - AI Coding Guide
 
-## Architecture Overview
+## Philosophy
 
-Next.js 16 App Router with MongoDB Atlas backend. Three core domains:
-- **Tasks** - User-created focus goals with target minutes
-- **Sessions** - Logged focus periods linked to tasks, earning points
-- **Dashboard** - Stats aggregation and weekly progress visualization
+**"Action First, Organization Later"** — productivity as gentle cultivation, not a grind.
 
-Data flow: `FocusContext` (client) ↔ REST API routes (`/api/*`) ↔ Mongoose models → MongoDB
+- **Friction-free start**: No mandatory sign-in, no planning wall. Write a task and start a timer instantly.
+- **Guest-first design**: Full functionality works locally before auth; sessions sync when users choose to sign up.
+- **Minimalism**: Every feature must justify its complexity. Prefer removing UI over adding toggles.
+- **Calm aesthetics**: The interface should feel like a sanctuary, not a dashboard. Soft colors, subtle animations.
+- **Reward all focus**: Quick timer sessions without a task are valid—every minute counts as growth.
 
-## Key Patterns
+When adding features, ask: "Does this let users focus faster, or does it add friction?"
 
-### API Route Structure
-All routes in `app/api/` follow this pattern:
+## Architecture
+
+Next.js 16 App Router + MongoDB Atlas. Data flows: `FocusContext` (client) ↔ REST API (`/api/*`) ↔ Mongoose → MongoDB.
+
+**Core domains**: Tasks (focus goals), Sessions (logged focus periods earning points), Dashboard (stats/streaks).
+
+**Provider hierarchy** in [app-providers.tsx](components/providers/app-providers.tsx):
+```tsx
+<ThemeProvider> → <AuthSessionProvider> → <FocusProvider> → <AppShell>
+```
+
+## API Route Pattern
+
+All routes in `app/api/` must follow this structure:
 ```typescript
 import { getAuthSession } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { Types } from "mongoose";
 
 export async function GET() {
   const session = await getAuthSession();
@@ -23,65 +37,56 @@ export async function GET() {
     return NextResponse.json({ message: "..." }, { status: 401 });
   }
   await connectToDatabase();
-  // Query with userId filter for data scoping
+  const userObjectId = new Types.ObjectId(session.user.id);
+  // Always scope queries by userId
 }
 ```
-Always scope queries by `userId` from session. Use `Types.ObjectId` for Mongoose queries.
 
-### DTOs vs Documents
-- **Documents** (`models/*.ts`): Mongoose schemas with `InferSchemaType`, `_id` as ObjectId
-- **DTOs** (`types/index.ts`): Serialized JSON with `_id` as string, dates as ISO strings
-- Convert with `serializeTask()`/`serializeSession()` helper functions in each route
+## DTOs vs Documents
 
-### Client State Management
-`FocusContext` (`context/focus-context.tsx`) provides:
-- Dual-mode storage: localStorage for guests, API for authenticated users
-- Automatic sync on auth state change via `useSession()`
-- Normalized data with `normalizeTask()`/`normalizeSession()` helpers
+- **Documents** ([models/](models/)): Mongoose schemas with `InferSchemaType`, `_id` as ObjectId
+- **DTOs** ([types/index.ts](types/index.ts)): Serialized JSON, `_id` as string, dates as ISO strings
+- Each route defines local `serializeTask()`/`serializeSession()` helpers for conversion
 
-### Provider Hierarchy
+## Client State - FocusContext
+
+[context/focus-context.tsx](context/focus-context.tsx) provides dual-mode storage:
+- **Guest mode**: localStorage (`cultivate-focus:tasks`, `cultivate-focus:sessions`)
+- **Authenticated**: Syncs with API on auth state change via `useSession()`
+- Uses `normalizeTask()`/`normalizeSession()` to handle legacy fields (e.g., `focusMinutes` → `focusMinutesGoal`)
+
+## Styling
+
+Use CSS variables from [globals.css](app/globals.css), NOT Tailwind color classes:
 ```tsx
-<ThemeProvider>        // next-themes
-  <AuthSessionProvider> // NextAuth SessionProvider
-    <FocusProvider>     // App state
-      <AppShell>        // Layout + navigation
+className="bg-[var(--surface)] text-[var(--focus)]"  // ✓
+className="bg-white text-emerald-400"                 // ✗
 ```
 
-## Styling Conventions
+Key tokens: `--focus`/`--focus-soft` (emerald), `--break`/`--break-soft` (amber), `--surface`, `--muted`
 
-CSS variables defined in `app/globals.css` - use `var(--token)` not Tailwind colors:
-- `--focus` / `--focus-soft` for primary actions (emerald)
-- `--break` / `--break-soft` for break mode (amber)
-- `--surface`, `--surface-muted` for cards/backgrounds
-- `--muted` for secondary text
+## Auth
 
-Components use inline Tailwind with CSS variable references:
-```tsx
-className="bg-[var(--surface)] text-[var(--focus)]"
-```
-
-## Auth Flow
-
-- NextAuth with credentials provider, JWT strategy
-- `getAuthSession()` helper wraps `getServerSession(authOptions)`
-- User ID available as `session.user.id` (extended in `next-auth.d.ts`)
-- Protected pages redirect via NextAuth `pages.signIn: "/login"`
+- NextAuth credentials provider with JWT strategy
+- `getAuthSession()` wraps `getServerSession(authOptions)` - use this in API routes
+- User ID: `session.user.id` (extended in [next-auth.d.ts](next-auth.d.ts))
 
 ## Commands
 
 ```bash
-npm run dev     # Start dev server at localhost:3000
-npm run lint    # ESLint check
-npm run build   # Production build (runs type checking)
+npm run dev     # localhost:3000
+npm run lint    # ESLint
+npm run build   # Production build (includes type checking)
 ```
 
-## Environment Variables
+## Env Variables
 
 - `MONGODB_URI` - MongoDB Atlas connection string
-- `AUTH_SECRET` - NextAuth signing secret (generate with `openssl rand -base64 32`)
+- `AUTH_SECRET` - NextAuth JWT signing secret (`openssl rand -base64 32`)
 
-## File Naming
+## Conventions
 
-- React components: PascalCase (`MetricCard.tsx` pattern, but currently kebab-case files)
-- Utilities in `lib/`: lowercase (`auth.ts`, `mongodb.ts`, `points.ts`, `dates.ts`)
-- Models: singular noun (`user.ts`, `task.ts`, `session.ts`)
+- Files: kebab-case (`metric-card.tsx`), exports: PascalCase (`MetricCard`)
+- Utilities in `lib/`: lowercase (`auth.ts`, `dates.ts`, `points.ts`)
+- Models: singular (`task.ts`, `session.ts`, `user.ts`)
+- Dates: ISO format `YYYY-MM-DD` strings, use helpers from [lib/dates.ts](lib/dates.ts)
