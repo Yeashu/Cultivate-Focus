@@ -216,25 +216,17 @@ export default function TimerPage() {
     const todayIso = getTodayIso();
 
     if (mode === "focus") {
-      if (!selectedTaskId) {
-        setStatusMessage("Focus session ended. Select a task to log progress.");
-        showNotification(
-          "Focus Session Complete! 🌿",
-          "Great work! Select a task to log your progress."
-        );
-        playChime();
-        return;
-      }
-
       try {
         await logSession({
-          taskId: selectedTaskId,
+          taskId: selectedTaskId || undefined,
           duration: totalSeconds / 60,
           pointsEarned: calculateFocusPoints(totalSeconds / 60),
           date: todayIso,
         });
-        const taskTitle = tasks.find((task) => task._id === selectedTaskId)?.title ?? "Task";
         const pointsEarned = calculateFocusPoints(totalSeconds / 60);
+        const taskTitle = selectedTaskId
+          ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "Task"
+          : "Quick Focus";
         setStatusMessage("Session logged and Focus Points added! Remember to take a mindful break.");
         showNotification(
           "Focus Session Complete! 🎯",
@@ -259,10 +251,6 @@ export default function TimerPage() {
   };
 
   const toggleTimer = () => {
-    if (mode === "focus" && !selectedTaskId) {
-      setStatusMessage("Choose a task before starting a focus session.");
-      return;
-    }
     setStatusMessage(null);
     setIsRunning((prev) => !prev);
   };
@@ -420,14 +408,14 @@ export default function TimerPage() {
 
         <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
           <label className="block text-sm font-medium text-[var(--muted)]">
-            Focus task
+            Focus task (optional)
           </label>
           <select
             value={selectedTaskId}
             onChange={(event) => setSelectedTaskId(event.target.value)}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)] shadow-sm focus:border-[var(--focus)] focus:outline-none"
           >
-            <option value="">Select a task to earn Focus Points</option>
+            <option value="">Quick timer (no task selected)</option>
             {tasks.map((task) => (
               <option key={task._id} value={task._id}>
                 {task.title} {task.completed ? "(completed)" : ""}
