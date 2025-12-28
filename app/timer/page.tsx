@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -162,7 +163,7 @@ function useNotifications() {
   return { permission, requestPermission, showNotification };
 }
 
-export default function TimerPage() {
+function TimerContent() {
   const { tasks, logSession, sessions } = useFocus();
   const searchParams = useSearchParams();
   const taskIdFromUrl = searchParams.get("taskId");
@@ -507,5 +508,19 @@ export default function TimerPage() {
         </div>
       </aside>
     </div>
+  );
+}
+
+export default function TimerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--focus)]" />
+        </div>
+      }
+    >
+      <TimerContent />
+    </Suspense>
   );
 }
