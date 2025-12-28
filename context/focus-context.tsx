@@ -14,8 +14,11 @@ import { useSession } from "next-auth/react";
 import {
   type CreateTaskPayload,
   type FocusStats,
+  type GrowthStage,
+  type GrowthStageName,
   type LogSessionPayload,
   type SessionDTO,
+  type StreakInfo,
   type TaskDTO,
   type UpdateSessionPayload,
   type UpdateTaskPayload,
@@ -25,6 +28,79 @@ import { getPastDates, getTodayIso } from "@/lib/dates";
 const LOCAL_TASKS_KEY = "cultivate-focus:tasks";
 const LOCAL_SESSIONS_KEY = "cultivate-focus:sessions";
 const LOCAL_USER_ID = "local-user";
+
+// Growth stage thresholds (in Focus Points)
+const GROWTH_STAGES: { name: GrowthStageName; label: string; threshold: number }[] = [
+  { name: "seed", label: "Seed", threshold: 0 },
+  { name: "sprout", label: "Sprout", threshold: 60 },
+  { name: "sapling", label: "Sapling", threshold: 150 },
+  { name: "bloom", label: "Bloom", threshold: 300 },
+];
+
+function calculateGrowthStage(totalPoints: number): GrowthStage {
+  let stageIndex = 0;
+  for (let i = GROWTH_STAGES.length - 1; i >= 0; i--) {
+    if (totalPoints >= GROWTH_STAGES[i].threshold) {
+      stageIndex = i;
+      break;
+    }
+  }
+  
+  const current = GROWTH_STAGES[stageIndex];
+  const next = GROWTH_STAGES[stageIndex + 1] ?? null;
+  
+  let progress = 1;
+  if (next) {
+    const range = next.threshold - current.threshold;
+    const earned = totalPoints - current.threshold;
+    progress = Math.min(1, earned / range);
+  }
+  
+  return {
+    name: current.name,
+    label: current.label,
+    threshold: current.threshold,
+    nextThreshold: next?.threshold ?? null,
+    progress,
+  };
+}
+
+function calculateStreak(sessions: SessionDTO[], weeklyDates: string[]): StreakInfo {
+  const today = getTodayIso();
+  const sessionDates = new Set(sessions.map(s => s.date));
+  const todayComplete = sessionDates.has(today);
+  
+  // Calculate weekly leaves (last 7 days)
+  const weeklyLeaves = weeklyDates.map(date => sessionDates.has(date));
+  
+  // Calculate current streak - count consecutive days backwards from today (or yesterday if today has no session)
+  let currentStreak = 0;
+  const sortedDates = Array.from(sessionDates).sort().reverse();
+  
+  if (sortedDates.length > 0) {
+    // Start from today or yesterday
+    const startDate = new Date(today);
+    if (!todayComplete) {
+      startDate.setDate(startDate.getDate() - 1);
+    }
+    
+    let checkDate = startDate;
+    while (sessionDates.has(checkDate.toISOString().slice(0, 10))) {
+      currentStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+  }
+  
+  // Calculate longest streak (simplified - just use current for now)
+  const longestStreak = Math.max(currentStreak, 0);
+  
+  return {
+    current: currentStreak,
+    longest: longestStreak,
+    todayComplete,
+    weeklyLeaves,
+  };
+}
 
 function generateLocalId(): string {
   const cryptoRef =
@@ -669,6 +745,20 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       (total, session) => total + session.duration,
       0
     );
+    
+    // Calculate total points from all sessions
+    const totalSessionPoints = sessions.reduce(
+      (total, session) => total + session.pointsEarned,
+      0
+    );
+    // Also include points from tasks (for backwards compatibility)
+    const totalTaskPoints = tasks.reduce(
+      (total, task) => total + task.earnedPoints,
+      0
+    );
+    // Use whichever is larger to avoid double counting
+    const totalPoints = Math.max(totalSessionPoints, totalTaskPoints);
+    
     const weeklyDates = getPastDates(7);
     const weeklyMap = new Map<string, number>(
       weeklyDates.map((date) => [date, 0])
@@ -683,16 +773,23 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Calculate growth stage and streak
+    const growthStage = calculateGrowthStage(totalPoints);
+    const streak = calculateStreak(sessions, weeklyDates);
+
     return {
       todayPoints,
       todayMinutes,
       todaySessions: todaySessions.length,
+      totalPoints,
       weekly: weeklyDates.map((date) => ({
         date,
         points: weeklyMap.get(date) ?? 0,
       })),
+      growthStage,
+      streak,
     } satisfies FocusStats;
-  }, [sessions]);
+  }, [sessions, tasks]);
 
   const value: FocusContextValue = {
     tasks,
