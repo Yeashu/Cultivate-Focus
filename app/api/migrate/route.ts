@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Types } from "mongoose";
 
 import { getAuthSession } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -23,12 +24,17 @@ export async function GET() {
 
   await connectToDatabase();
 
-  // Find all tasks that need migration (missing scheduledDate)
+  // Find all tasks for this user that need migration
+  // Conditions:
+  //  - scheduledDate missing, null, or empty string
+  //  - do not touch tasks that already have a valid scheduledDate (YYYY-MM-DD) or "someday"
+  const userObjectId = new Types.ObjectId(session.user.id);
   const tasksToMigrate = await TaskModel.find({
-    userId: session.user.id,
+    userId: userObjectId,
     $or: [
       { scheduledDate: { $exists: false } },
       { scheduledDate: null },
+      { scheduledDate: "" },
     ],
   });
 
@@ -66,7 +72,7 @@ export async function GET() {
           : focusMinutes ?? null;
 
       await TaskModel.updateOne(
-        { _id: task._id },
+        { _id: task._id, userId: userObjectId },
         {
           $set: {
             scheduledDate,

@@ -26,8 +26,11 @@ function serializeTask(task: TaskLike): TaskDTO {
     task.focusMinutesGoal !== undefined && task.focusMinutesGoal !== null
       ? task.focusMinutesGoal
       : task.focusMinutes ?? null;
-  // Default scheduledDate to createdAt date if not set
-  const scheduledDate = task.scheduledDate ?? createdAt.slice(0, 10);
+  // Default scheduledDate to "someday" if missing/empty (ensures visibility in planner)
+  const scheduledDate =
+    task.scheduledDate !== undefined && task.scheduledDate !== null && task.scheduledDate !== ""
+      ? task.scheduledDate
+      : "someday";
 
   return {
     _id: task._id.toString(),
