@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { TaskLine } from "./task-line";
 import type { TaskDTO } from "@/types";
 
@@ -160,58 +161,76 @@ export function DayColumn({
 
       {/* Task List */}
       <div className="day-tasks">
-        {incompleteTasks.map((task, index) => (
-          <TaskLine
-            key={task._id}
-            task={task}
-            isPast={isPast}
-            isDragOver={dragOverIndex === index && internalDragTask?._id !== task._id}
-            onDragStart={() => handleInternalDragStart(task)}
-            onDragEnd={handleInternalDragEnd}
-            onDragOver={() => handleTaskDragOver(index)}
-            onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
-            onToggleComplete={() => onToggleComplete(task)}
-            onDelete={() => onDeleteTask(task._id)}
-          />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {incompleteTasks.map((task, index) => (
+            <TaskLine
+              key={task._id}
+              task={task}
+              isPast={isPast}
+              isDragOver={dragOverIndex === index && internalDragTask?._id !== task._id}
+              onDragStart={() => handleInternalDragStart(task)}
+              onDragEnd={handleInternalDragEnd}
+              onDragOver={() => handleTaskDragOver(index)}
+              onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
+              onToggleComplete={() => onToggleComplete(task)}
+              onDelete={() => onDeleteTask(task._id)}
+            />
+          ))}
+        </AnimatePresence>
 
         {/* Inline Create */}
-        {isCreating ? (
-          <div className="task-line task-line--creating">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onBlur={handleCreateSubmit}
-              onKeyDown={handleKeyDown}
-              className="task-input"
-              placeholder="Task name @25 for 25min goal"
-            />
-          </div>
-        ) : (
-          <button
-            className="add-task-zone"
-            onClick={handleEmptyClick}
-            aria-label="Add task"
-          >
-            <span className="add-task-hint">+ Add task</span>
-          </button>
-        )}
+        <AnimatePresence mode="wait">
+          {isCreating ? (
+            <motion.div 
+              key="creating"
+              className="task-line task-line--creating"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.15 }}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onBlur={handleCreateSubmit}
+                onKeyDown={handleKeyDown}
+                className="task-input"
+                placeholder="Task name @25 for 25min goal"
+              />
+            </motion.div>
+          ) : (
+            <motion.button
+              key="add-button"
+              className="add-task-zone"
+              onClick={handleEmptyClick}
+              aria-label="Add task"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <span className="add-task-hint">+ Add task</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Completed tasks at bottom, faded */}
-        {completedTasks.map((task) => (
-          <TaskLine
-            key={task._id}
-            task={task}
-            isPast={isPast}
-            onDragStart={() => handleInternalDragStart(task)}
-            onDragEnd={handleInternalDragEnd}
-            onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
-            onToggleComplete={() => onToggleComplete(task)}
-            onDelete={() => onDeleteTask(task._id)}
-          />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {completedTasks.map((task) => (
+            <TaskLine
+              key={task._id}
+              task={task}
+              isPast={isPast}
+              onDragStart={() => handleInternalDragStart(task)}
+              onDragEnd={handleInternalDragEnd}
+              onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
+              onToggleComplete={() => onToggleComplete(task)}
+              onDelete={() => onDeleteTask(task._id)}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

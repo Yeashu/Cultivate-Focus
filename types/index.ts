@@ -31,10 +31,36 @@ export interface FocusStats {
   todayPoints: number;
   todayMinutes: number;
   todaySessions: number;
+  totalPoints: number;
   weekly: Array<{
     date: string;
     points: number;
   }>;
+  /** Current growth stage based on total focus points */
+  growthStage: GrowthStage;
+  /** Garden streak - consecutive days with at least one session */
+  streak: StreakInfo;
+}
+
+export type GrowthStageName = "seed" | "sprout" | "sapling" | "bloom";
+
+export interface GrowthStage {
+  name: GrowthStageName;
+  label: string;
+  threshold: number;
+  nextThreshold: number | null;
+  progress: number; // 0-1 progress to next stage
+}
+
+export interface StreakInfo {
+  /** Current streak count */
+  current: number;
+  /** Longest streak ever */
+  longest: number;
+  /** Whether today has a session */
+  todayComplete: boolean;
+  /** Array of last 7 days with boolean for each day having a session */
+  weeklyLeaves: boolean[];
 }
 
 export interface CreateTaskPayload {
