@@ -58,12 +58,25 @@ function normalizeTask(raw: StoredTask): TaskDTO | null {
   if (!title) {
     return null;
   }
-  const focusMinutesNumber = Number(raw.focusMinutes);
+  // Support both legacy focusMinutes and new focusMinutesGoal
+  const legacyFocusMinutes = Number(raw.focusMinutes);
+  const focusMinutesGoalRaw = raw.focusMinutesGoal;
+  const focusMinutesGoal =
+    focusMinutesGoalRaw !== undefined && focusMinutesGoalRaw !== null
+      ? Number(focusMinutesGoalRaw)
+      : Number.isFinite(legacyFocusMinutes) && legacyFocusMinutes > 0
+        ? legacyFocusMinutes
+        : null;
   const earnedPointsNumber = Number(raw.earnedPoints);
   const createdAt =
     typeof raw.createdAt === "string" && raw.createdAt
       ? raw.createdAt
       : new Date().toISOString();
+  // Auto-assign scheduledDate to today if missing (client-side migration)
+  const scheduledDate =
+    typeof raw.scheduledDate === "string" && raw.scheduledDate
+      ? raw.scheduledDate
+      : getTodayIso();
 
   return {
     _id:
@@ -74,10 +87,11 @@ function normalizeTask(raw: StoredTask): TaskDTO | null {
         : LOCAL_USER_ID,
     title,
     description: typeof raw.description === "string" ? raw.description : "",
-    focusMinutes:
-      Number.isFinite(focusMinutesNumber) && focusMinutesNumber > 0
-        ? Math.round(focusMinutesNumber)
-        : 25,
+    focusMinutesGoal:
+      focusMinutesGoal !== null && Number.isFinite(focusMinutesGoal) && focusMinutesGoal > 0
+        ? Math.round(focusMinutesGoal)
+        : null,
+    scheduledDate,
     completed: Boolean(raw.completed),
     earnedPoints:
       Number.isFinite(earnedPointsNumber) && earnedPointsNumber > 0
@@ -88,11 +102,9 @@ function normalizeTask(raw: StoredTask): TaskDTO | null {
 }
 
 function normalizeSession(raw: StoredSession): SessionDTO | null {
+  // taskId is now optional - allow null for "quick timer" sessions
   const taskId =
     typeof raw.taskId === "string" && raw.taskId ? raw.taskId : null;
-  if (!taskId) {
-    return null;
-  }
   const durationNumber = Number(raw.duration);
   const pointsNumber = Number(raw.pointsEarned);
   const createdAt =
@@ -294,12 +306,14 @@ export function FocusProvider({ children }: { children: ReactNode }) {
           loadLocalState();
         }
         const createdAt = new Date().toISOString();
+        const scheduledDate = payload.scheduledDate ?? getTodayIso();
         const newTask: TaskDTO = {
           _id: generateLocalId(),
           userId: LOCAL_USER_ID,
           title: payload.title.trim(),
           description: payload.description?.trim() ?? "",
-          focusMinutes: payload.focusMinutes,
+          focusMinutesGoal: payload.focusMinutesGoal ?? null,
+          scheduledDate,
           completed: false,
           earnedPoints: 0,
           createdAt,
@@ -358,10 +372,14 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                 payload.description !== undefined
                   ? payload.description
                   : task.description,
-              focusMinutes:
-                payload.focusMinutes !== undefined
-                  ? Math.max(1, Math.round(payload.focusMinutes))
-                  : task.focusMinutes,
+              focusMinutesGoal:
+                payload.focusMinutesGoal !== undefined
+                  ? payload.focusMinutesGoal
+                  : task.focusMinutesGoal,
+              scheduledDate:
+                payload.scheduledDate !== undefined
+                  ? payload.scheduledDate
+                  : task.scheduledDate,
               completed:
                 payload.completed !== undefined
                   ? Boolean(payload.completed)
@@ -466,7 +484,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         const newSession: SessionDTO = {
           _id: generateLocalId(),
           userId: LOCAL_USER_ID,
-          taskId: payload.taskId,
+          taskId: payload.taskId ?? null,
           duration,
           pointsEarned: points,
           date: sessionDate,
@@ -479,23 +497,27 @@ export function FocusProvider({ children }: { children: ReactNode }) {
           return next;
         });
 
-        setTasks((prev) => {
-          const next = prev.map((task) => {
-            if (task._id !== payload.taskId) {
-              return task;
-            }
-            const updatedPoints = Math.max(0, task.earnedPoints + points);
-            const completed =
-              task.completed || updatedPoints >= task.focusMinutes;
-            return {
-              ...task,
-              earnedPoints: updatedPoints,
-              completed,
-            };
+        // Only update task if a taskId was provided
+        if (payload.taskId) {
+          setTasks((prev) => {
+            const next = prev.map((task) => {
+              if (task._id !== payload.taskId) {
+                return task;
+              }
+              const updatedPoints = Math.max(0, task.earnedPoints + points);
+              const goal = task.focusMinutesGoal;
+              const completed =
+                task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+              return {
+                ...task,
+                earnedPoints: updatedPoints,
+                completed,
+              };
+            });
+            persistLocalTasks(next);
+            return next;
           });
-          persistLocalTasks(next);
-          return next;
-        });
+        }
 
         return;
       }

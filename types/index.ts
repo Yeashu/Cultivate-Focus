@@ -3,7 +3,12 @@ export interface TaskDTO {
   userId: string;
   title: string;
   description?: string;
-  focusMinutes: number;
+  /** @deprecated Use focusMinutesGoal instead */
+  focusMinutes?: number;
+  /** Optional focus goal in minutes (null/undefined means no goal) */
+  focusMinutesGoal?: number | null;
+  /** Scheduled date for weekly view (YYYY-MM-DD) */
+  scheduledDate: string;
   completed: boolean;
   earnedPoints: number;
   createdAt: string;
@@ -12,7 +17,8 @@ export interface TaskDTO {
 export interface SessionDTO {
   _id: string;
   userId: string;
-  taskId: string;
+  /** Optional: null for "quick timer" sessions without a task */
+  taskId: string | null;
   duration: number;
   pointsEarned: number;
   date: string;
@@ -32,19 +38,24 @@ export interface FocusStats {
 export interface CreateTaskPayload {
   title: string;
   description?: string;
-  focusMinutes: number;
+  /** Optional focus goal in minutes */
+  focusMinutesGoal?: number | null;
+  /** Optional scheduled date (defaults to today) */
+  scheduledDate?: string;
 }
 
 export interface UpdateTaskPayload {
   id: string;
   title?: string;
   description?: string;
-  focusMinutes?: number;
+  focusMinutesGoal?: number | null;
+  scheduledDate?: string;
   completed?: boolean;
 }
 
 export interface LogSessionPayload {
-  taskId: string;
+  /** Optional: null for quick timer sessions */
+  taskId?: string | null;
   duration: number;
   pointsEarned: number;
   date: string;
