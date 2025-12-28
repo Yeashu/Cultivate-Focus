@@ -13,7 +13,7 @@ import { TaskModel } from "@/models/task";
  * Call this once via: GET /api/migrate
  * Protected: requires authenticated user
  */
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getAuthSession();
   if (!session?.user?.id) {
     return NextResponse.json(
@@ -24,11 +24,56 @@ export async function GET() {
 
   await connectToDatabase();
 
+  const url = new URL(request.url);
+  const forceParam = url.searchParams.get("force") || url.searchParams.get("mode");
   // Find all tasks for this user that need migration
   // Conditions:
   //  - scheduledDate missing, null, or empty string
   //  - do not touch tasks that already have a valid scheduledDate (YYYY-MM-DD) or "someday"
   const userObjectId = new Types.ObjectId(session.user.id);
+  
+  // Force mode: move ALL tasks into planner (Someday backlog), regardless of current scheduledDate
+  if (forceParam === "someday" || forceParam === "true" || forceParam === "all") {
+    const allTasks = await TaskModel.find({ userId: userObjectId });
+
+    let updatedCount = 0;
+    const errors: string[] = [];
+
+    for (const task of allTasks) {
+      try {
+        const focusMinutes = task.focusMinutes as number | undefined;
+        const existingGoal = task.focusMinutesGoal as number | undefined | null;
+        const focusMinutesGoal =
+          existingGoal !== undefined && existingGoal !== null
+            ? existingGoal
+            : focusMinutes ?? null;
+
+        await TaskModel.updateOne(
+          { _id: task._id, userId: userObjectId },
+          {
+            $set: {
+              scheduledDate: "someday",
+              focusMinutesGoal,
+            },
+          }
+        );
+        updatedCount++;
+      } catch (err) {
+        const taskId = task._id?.toString() ?? "unknown";
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        errors.push(`Task ${taskId}: ${errorMessage}`);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Force migration complete. Moved ${updatedCount} tasks to Someday backlog.`,
+      totalFound: allTasks.length,
+      movedToSomeday: updatedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  }
+
   const tasksToMigrate = await TaskModel.find({
     userId: userObjectId,
     $or: [
@@ -101,6 +146,6 @@ export async function GET() {
 /**
  * POST version for explicit migration trigger
  */
-export async function POST() {
-  return GET();
+export async function POST(request: Request) {
+  return GET(request);
 }
