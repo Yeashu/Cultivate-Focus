@@ -5,6 +5,7 @@ import {
   Clock3,
   CheckCircle2,
   ClipboardList,
+  Leaf,
 } from "lucide-react";
 
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -13,15 +14,25 @@ import { WeeklyProgress } from "@/components/dashboard/weekly-progress";
 import { useFocus } from "@/context/focus-context";
 import { formatDateLabel, getTodayIso } from "@/lib/dates";
 export default function DashboardPage() {
-  const { stats, tasks, loading, error } = useFocus();
+  const { stats, tasks, sessions, loading, error } = useFocus();
 
   const totalPoints = tasks.reduce((sum, task) => sum + task.earnedPoints, 0);
+  // Include general focus sessions in total points calculation
+  const generalFocusPoints = sessions
+    .filter(s => !s.taskId)
+    .reduce((sum, s) => sum + s.pointsEarned, 0);
+  const totalFocusGrowth = totalPoints + generalFocusPoints;
+  
   const completedTasks = tasks.filter((task) => task.completed).length;
   const activeTasks = tasks.length - completedTasks;
   const topTasks = [...tasks]
     .sort((a, b) => b.earnedPoints - a.earnedPoints)
     .slice(0, 3);
   const todayIso = getTodayIso();
+  
+  // Today's general focus sessions
+  const todayGeneralSessions = sessions.filter(s => s.date === todayIso && !s.taskId);
+  const todayGeneralPoints = todayGeneralSessions.reduce((sum, s) => sum + s.pointsEarned, 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -62,7 +73,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <WeeklyProgress data={stats.weekly} />
         </div>
-        <PlantGrowth points={totalPoints} />
+        <PlantGrowth points={totalFocusGrowth} />
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
@@ -90,6 +101,20 @@ export default function DashboardPage() {
                   </span>
                 </div>
               ))}
+            
+            {/* Show general focus summary if there are any today */}
+            {todayGeneralSessions.length > 0 && (
+              <div className="flex items-center justify-between rounded-2xl bg-[var(--focus-soft)]/30 p-3 text-sm">
+                <span className="flex items-center gap-2 font-medium text-[var(--foreground)]">
+                  <Leaf className="h-4 w-4 text-[var(--focus)]" />
+                  General Focus
+                </span>
+                <span className="text-[var(--focus)]">
+                  {todayGeneralSessions.length} session{todayGeneralSessions.length > 1 ? "s" : ""} · {todayGeneralPoints} FP
+                </span>
+              </div>
+            )}
+            
             {!stats.weekly.some((day) => day.date === todayIso) ? (
               <div className="rounded-2xl border border-dashed border-[var(--border)]/60 p-4 text-sm text-[var(--muted)]">
                 No sessions logged yet today. Start one from the timer page to

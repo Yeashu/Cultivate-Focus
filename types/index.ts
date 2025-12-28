@@ -63,3 +63,9 @@ export interface LogSessionPayload {
   pointsEarned: number;
   date: string;
 }
+
+export interface UpdateSessionPayload {
+  id: string;
+  /** Link session to a task retroactively */
+  taskId?: string | null;
+}
