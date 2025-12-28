@@ -116,6 +116,16 @@ export function WeeklyPlanner() {
     [deleteTask]
   );
 
+  const handleReorderTasks = useCallback(
+    async (taskIds: string[]) => {
+      // Update order for each task
+      await Promise.all(
+        taskIds.map((id, index) => updateTask({ id, order: index }))
+      );
+    },
+    [updateTask]
+  );
+
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -162,6 +172,7 @@ export function WeeklyPlanner() {
           <DayColumn
             key={iso}
             date={date}
+            dateIso={iso}
             isToday={iso === todayIso}
             isPast={iso < todayIso}
             tasks={tasksByDate[iso] || []}
@@ -172,6 +183,7 @@ export function WeeklyPlanner() {
             onUpdateTask={handleUpdateTask}
             onToggleComplete={handleToggleComplete}
             onDeleteTask={handleDeleteTask}
+            onReorderTasks={handleReorderTasks}
           />
         ))}
       </div>

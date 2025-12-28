@@ -9,6 +9,8 @@ export interface TaskDTO {
   focusMinutesGoal?: number | null;
   /** Scheduled date for weekly view (YYYY-MM-DD) */
   scheduledDate: string;
+  /** Order within the day (lower = higher in list) */
+  order?: number;
   completed: boolean;
   earnedPoints: number;
   createdAt: string;
@@ -50,6 +52,7 @@ export interface UpdateTaskPayload {
   description?: string;
   focusMinutesGoal?: number | null;
   scheduledDate?: string;
+  order?: number;
   completed?: boolean;
 }
 

@@ -149,6 +149,11 @@ body {
   color: var(--muted);
 }
 
+.task-line--drag-over {
+  border-top: 2px solid var(--focus);
+  margin-top: -2px;
+}
+
 .task-line--overdue {
   color: var(--break);
 }

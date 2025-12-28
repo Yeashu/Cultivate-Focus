@@ -8,8 +8,10 @@ import type { TaskDTO } from "@/types";
 interface TaskLineProps {
   task: TaskDTO;
   isPast?: boolean;
+  isDragOver?: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onDragOver?: () => void;
   onUpdate: (title: string) => Promise<void>;
   onToggleComplete: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -18,8 +20,10 @@ interface TaskLineProps {
 export function TaskLine({
   task,
   isPast = false,
+  isDragOver = false,
   onDragStart,
   onDragEnd,
+  onDragOver,
   onUpdate,
   onToggleComplete,
   onDelete,
@@ -40,6 +44,11 @@ export function TaskLine({
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", task._id);
     onDragStart();
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    onDragOver?.();
   };
 
   const handleClick = () => {
@@ -74,12 +83,13 @@ export function TaskLine({
 
   return (
     <div
-      className={`task-line ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""}`}
+      className={`task-line ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""} ${isDragOver ? "task-line--drag-over" : ""}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       draggable={!isEditing}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onDragOver={handleDragOver}
     >
       {/* Drag Handle - only visible on hover */}
       <span className={`task-handle ${isHovered ? "task-handle--visible" : ""}`}>

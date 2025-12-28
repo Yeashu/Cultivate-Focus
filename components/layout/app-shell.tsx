@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-gradient-to-b from-[var(--focus-soft)]/50 to-transparent dark:from-[var(--focus-soft)]/30" />
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-10">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--surface)] shadow-sm">
@@ -82,8 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <LoginPrompt />
         <main className="flex-1">
           <div
-            className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl dark:border-[var(--surface-muted)]/40"
-            style={{ boxShadow: "var(--shadow)" }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm sm:p-6 dark:border-[var(--surface-muted)]/40"
           >
             {children}
           </div>

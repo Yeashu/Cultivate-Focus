@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { TaskLine } from "./task-line";
 import type { TaskDTO } from "@/types";
 
@@ -17,6 +17,7 @@ interface DayColumnProps {
   onUpdateTask: (taskId: string, title: string) => Promise<void>;
   onToggleComplete: (task: TaskDTO) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
+  onReorderTasks: (taskIds: string[]) => Promise<void>;
 }
 
 export function DayColumn({
@@ -31,29 +32,80 @@ export function DayColumn({
   onUpdateTask,
   onToggleComplete,
   onDeleteTask,
+  onReorderTasks,
 }: DayColumnProps) {
   const [isDropTarget, setIsDropTarget] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [internalDragTask, setInternalDragTask] = useState<TaskDTO | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
   const dayNumber = date.getDate();
+
+  // Separate incomplete and completed tasks, sort by order
+  const incompleteTasks = tasks
+    .filter((t) => !t.completed)
+    .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+  const completedTasks = tasks.filter((t) => t.completed);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDropTarget(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDropTarget(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only set false if leaving the column entirely
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const { clientX, clientY } = e;
+    if (
+      clientX < rect.left ||
+      clientX > rect.right ||
+      clientY < rect.top ||
+      clientY > rect.bottom
+    ) {
+      setIsDropTarget(false);
+      setDragOverIndex(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDropTarget(false);
+    
+    // Handle internal reorder
+    if (internalDragTask && dragOverIndex !== null) {
+      const currentIndex = incompleteTasks.findIndex((t) => t._id === internalDragTask._id);
+      if (currentIndex !== -1 && currentIndex !== dragOverIndex) {
+        const newOrder = [...incompleteTasks];
+        const [removed] = newOrder.splice(currentIndex, 1);
+        newOrder.splice(dragOverIndex, 0, removed);
+        onReorderTasks(newOrder.map((t) => t._id));
+      }
+      setInternalDragTask(null);
+      setDragOverIndex(null);
+      return;
+    }
+    
+    setDragOverIndex(null);
     onDrop();
   };
+
+  const handleInternalDragStart = useCallback((task: TaskDTO) => {
+    setInternalDragTask(task);
+    onDragStart(task);
+  }, [onDragStart]);
+
+  const handleInternalDragEnd = useCallback(() => {
+    setInternalDragTask(null);
+    setDragOverIndex(null);
+    onDragEnd();
+  }, [onDragEnd]);
+
+  const handleTaskDragOver = useCallback((index: number) => {
+    setDragOverIndex(index);
+  }, []);
 
   const handleEmptyClick = () => {
     setIsCreating(true);
@@ -78,10 +130,6 @@ export function DayColumn({
     }
   };
 
-  // Separate incomplete and completed tasks
-  const incompleteTasks = tasks.filter((t) => !t.completed);
-  const completedTasks = tasks.filter((t) => t.completed);
-
   return (
     <div
       className={`day-column ${isDropTarget ? "day-column--drop-target" : ""}`}
@@ -99,13 +147,15 @@ export function DayColumn({
 
       {/* Task List */}
       <div className="day-tasks">
-        {incompleteTasks.map((task) => (
+        {incompleteTasks.map((task, index) => (
           <TaskLine
             key={task._id}
             task={task}
             isPast={isPast}
-            onDragStart={() => onDragStart(task)}
-            onDragEnd={onDragEnd}
+            isDragOver={dragOverIndex === index && internalDragTask?._id !== task._id}
+            onDragStart={() => handleInternalDragStart(task)}
+            onDragEnd={handleInternalDragEnd}
+            onDragOver={() => handleTaskDragOver(index)}
             onUpdate={(title: string) => onUpdateTask(task._id, title)}
             onToggleComplete={() => onToggleComplete(task)}
             onDelete={() => onDeleteTask(task._id)}
@@ -142,8 +192,8 @@ export function DayColumn({
             key={task._id}
             task={task}
             isPast={isPast}
-            onDragStart={() => onDragStart(task)}
-            onDragEnd={onDragEnd}
+            onDragStart={() => handleInternalDragStart(task)}
+            onDragEnd={handleInternalDragEnd}
             onUpdate={(title: string) => onUpdateTask(task._id, title)}
             onToggleComplete={() => onToggleComplete(task)}
             onDelete={() => onDeleteTask(task._id)}
