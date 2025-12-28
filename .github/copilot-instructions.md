@@ -55,6 +55,21 @@ export async function GET() {
 - **Authenticated**: Syncs with API on auth state change via `useSession()`
 - Uses `normalizeTask()`/`normalizeSession()` to handle legacy fields (e.g., `focusMinutes` → `focusMinutesGoal`)
 
+## Key Domain Patterns
+
+**Tasks & Scheduling**:
+- `scheduledDate`: ISO date string (`YYYY-MM-DD`) or `"someday"` for backlog
+- Drag-and-drop in Weekly Planner updates `scheduledDate` via `updateTask()`
+
+**Sessions & Points**:
+- `taskId: null` = quick timer session (no task linked)—fully valid, earns points
+- Points: 1 point per minute of focus (`lib/points.ts`)
+
+**Growth Stages** (by total points):
+- Seed (0) → Sprout (60) → Sapling (150) → Bloom (300)
+
+**Streak**: Consecutive days with ≥1 session, tracked in `FocusContext`
+
 ## Styling
 
 Use CSS variables from [globals.css](app/globals.css), NOT Tailwind color classes:

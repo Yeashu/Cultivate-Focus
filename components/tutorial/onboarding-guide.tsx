@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-const STORAGE_KEY = "cultivate-focus:onboarding-v1";
+const STORAGE_KEY = "cultivate-focus:onboarding-v2";
 
 type TutorialStep = {
   id: string;
@@ -29,91 +29,91 @@ type TutorialStep = {
 
 const tutorialSteps: TutorialStep[] = [
   {
-    id: "tasks",
-    title: "Capture today’s tasks",
+    id: "welcome",
+    title: "Welcome to Cultivate Focus",
     description:
-      "Open the Tasks tab to list what you want to focus on. Each task keeps a time goal and collects Focus Points when you finish sessions.",
+      "A calm space for mindful productivity. No sign-in required—just start focusing. Your data saves locally and syncs to the cloud when you're ready.",
     bulletPoints: [
       {
-        label: "1. Click the Tasks tab",
-        detail: "Use the top navigation to switch to Tasks whenever you need to edit your list.",
+        label: "Action first, organize later",
+        detail: "Jump straight into a focus session without planning. Every minute counts.",
       },
       {
-        label: "2. Add a task",
-        detail: "Fill out the form with a title, optional notes, and your planned focus minutes.",
+        label: "Grow your digital garden",
+        detail: "Earn 1 Focus Point per minute. Watch your plant evolve from Seed to Bloom.",
       },
       {
-        label: "3. Watch progress",
-        detail: "Focus Points add up automatically for each task every time you log a session.",
+        label: "Optional account",
+        detail: "Sign up anytime to sync across devices. Your guest data transfers automatically.",
       },
     ],
-    action: { label: "Go to Tasks", href: "/tasks" },
-    icon: ClipboardList,
+    icon: Sprout,
   },
   {
     id: "timer",
-    title: "Run a focus session",
+    title: "Start a focus session",
     description:
-      "Head to the Timer tab to start working. The timer guides you through focus and break blocks while tracking the task you’ve selected.",
+      "Head to the Timer to begin working. Pick a task or just start—quick sessions without a task are perfectly valid and still earn points.",
     bulletPoints: [
       {
-        label: "1. Click Timer",
-        detail: "Switch to the Timer tab from the navigation bar.",
+        label: "1. Open Timer",
+        detail: "Click Timer in the navigation bar.",
       },
       {
-        label: "2. Choose your task",
-        detail: "Use the task selector so Focus Points go to the right item.",
+        label: "2. Link a task (optional)",
+        detail: "Select a task to track progress, or leave it unlinked for a quick focus burst.",
       },
       {
-        label: "3. Start and log",
-        detail: "Press Start, stay with the timer, and let the session auto-log when the chime plays.",
+        label: "3. Focus and earn",
+        detail: "Press Start. When the mindful chime plays, your session logs automatically.",
       },
     ],
     action: { label: "Go to Timer", href: "/timer" },
     icon: TimerIcon,
   },
   {
-    id: "dashboard",
-    title: "Review your dashboard",
+    id: "planner",
+    title: "Plan your week",
     description:
-      "The Dashboard tab shows today’s totals, your recent streak, and charts for the past week so you can adjust quickly.",
+      "The Planner shows your week as a spread. Drag tasks between days, or drop them in 'Someday' for ideas without a deadline.",
     bulletPoints: [
       {
-        label: "1. Open Dashboard",
-        detail: "Use the Dashboard button in the header to return here any time.",
+        label: "1. Open Planner",
+        detail: "Click Planner in the navigation to see your weekly view.",
       },
       {
-        label: "2. Check your stats",
-        detail: "See minutes, sessions, and Focus Points for today on the summary cards.",
+        label: "2. Add tasks",
+        detail: "Type a task title. Set an optional focus goal in minutes.",
       },
       {
-        label: "3. Look at recent activity",
-        detail: "The weekly chart and highlights show which tasks are earning the most points.",
+        label: "3. Drag to schedule",
+        detail: "Move tasks between days or into the Someday horizon at the bottom.",
+      },
+    ],
+    action: { label: "Go to Planner", href: "/tasks" },
+    icon: ClipboardList,
+  },
+  {
+    id: "dashboard",
+    title: "Track your growth",
+    description:
+      "The Dashboard shows today's stats, your weekly trend, and your plant's growth stage. Build streaks by focusing at least once each day.",
+    bulletPoints: [
+      {
+        label: "Focus Points",
+        detail: "See minutes, sessions, and points earned today.",
+      },
+      {
+        label: "Plant lifecycle",
+        detail: "Seed (0) → Sprout (60) → Sapling (150) → Bloom (300 points).",
+      },
+      {
+        label: "Garden streak",
+        detail: "Consecutive days with at least one session. Keep the leaves growing!",
       },
     ],
     action: { label: "Go to Dashboard", href: "/" },
     icon: BarChart3,
-  },
-  {
-    id: "ritual",
-    title: "Keep a simple routine",
-    description:
-      "Repeat this loop each day: capture tasks, run sessions with the timer, then review the dashboard. Consistency is what builds Focus Points over time.",
-    bulletPoints: [
-      {
-        label: "Morning: plan",
-        detail: "Add or update tasks so you know what you will work on.",
-      },
-      {
-        label: "During work: focus",
-        detail: "Run a focus session whenever you start a block of deep work.",
-      },
-      {
-        label: "End of day: review",
-        detail: "Peek at the dashboard to see what earned the most points and plan the next day.",
-      },
-    ],
-    icon: Sprout,
   },
 ];
 
