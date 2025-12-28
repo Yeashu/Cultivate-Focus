@@ -10,7 +10,7 @@ import type { SessionDTO, TaskDTO } from "@/types";
 type SessionLike = {
   _id: { toString(): string };
   userId: { toString(): string };
-  taskId: { toString(): string } | string;
+  taskId: { toString(): string } | string | null;
   duration: number;
   pointsEarned: number;
   date: string;
@@ -22,18 +22,24 @@ type TaskLike = {
   userId: { toString(): string };
   title: string;
   description?: string;
-  focusMinutes: number;
+  focusMinutes?: number;
+  focusMinutesGoal?: number | null;
+  scheduledDate?: string | null;
   completed: boolean;
   earnedPoints: number;
   createdAt?: Date;
 };
 
 function serializeSession(session: SessionLike): SessionDTO {
+  const taskIdValue = session.taskId;
   return {
     _id: session._id.toString(),
     userId: session.userId.toString(),
-    taskId:
-      typeof session.taskId === "string" ? session.taskId : session.taskId.toString(),
+    taskId: taskIdValue
+      ? typeof taskIdValue === "string"
+        ? taskIdValue
+        : taskIdValue.toString()
+      : null,
     duration: session.duration,
     pointsEarned: session.pointsEarned,
     date: session.date,
@@ -42,15 +48,23 @@ function serializeSession(session: SessionLike): SessionDTO {
 }
 
 function serializeTask(task: TaskLike): TaskDTO {
+  const createdAt = task.createdAt?.toISOString?.() ?? new Date().toISOString();
+  const focusMinutesGoal =
+    task.focusMinutesGoal !== undefined && task.focusMinutesGoal !== null
+      ? task.focusMinutesGoal
+      : task.focusMinutes ?? null;
+  const scheduledDate = task.scheduledDate ?? createdAt.slice(0, 10);
+
   return {
     _id: task._id.toString(),
     userId: task.userId.toString(),
     title: task.title,
     description: task.description ?? "",
-    focusMinutes: task.focusMinutes,
+    focusMinutesGoal,
+    scheduledDate,
     completed: task.completed,
     earnedPoints: task.earnedPoints,
-    createdAt: task.createdAt?.toISOString?.() ?? new Date().toISOString(),
+    createdAt,
   };
 }
 
@@ -100,12 +114,8 @@ export async function POST(request: Request) {
   const payload = await request.json();
   const { taskId, duration, pointsEarned, date } = payload ?? {};
 
-  if (!taskId || typeof taskId !== "string") {
-    return NextResponse.json(
-      { message: "taskId is required." },
-      { status: 400 }
-    );
-  }
+  // taskId is now optional for "quick timer" sessions
+  const hasTaskId = taskId && typeof taskId === "string";
 
   const durationMinutes = Number(duration);
   const points = Number(pointsEarned);
@@ -126,38 +136,54 @@ export async function POST(request: Request) {
   }
 
   const sessionDate = dateIso ?? new Date().toISOString().slice(0, 10);
-
-  const task = await TaskModel.findOne({ _id: taskId, userId: session.user.id });
-
-  if (!task) {
-    return NextResponse.json(
-      { message: "Task not found." },
-      { status: 404 }
-    );
-  }
-
   const userObjectId = new Types.ObjectId(session.user.id);
+
+  // If taskId is provided, validate and update the task
+  let task = null;
+  if (hasTaskId) {
+    task = await TaskModel.findOne({ _id: taskId, userId: session.user.id });
+
+    if (!task) {
+      return NextResponse.json(
+        { message: "Task not found." },
+        { status: 404 }
+      );
+    }
+  }
 
   const sessionDocument = await SessionModel.create({
     userId: userObjectId,
-    taskId,
+    taskId: hasTaskId ? taskId : null,
     duration: durationMinutes,
     pointsEarned: points,
     date: sessionDate,
   });
 
-  task.earnedPoints += points;
+  // Update task progress if a task was linked
+  if (task) {
+    task.earnedPoints += points;
 
-  if (!task.completed && task.earnedPoints >= task.focusMinutes) {
-    task.completed = true;
+    // Check completion using focusMinutesGoal (new) or focusMinutes (legacy)
+    const goal = task.focusMinutesGoal ?? task.focusMinutes;
+    if (!task.completed && goal && task.earnedPoints >= goal) {
+      task.completed = true;
+    }
+
+    await task.save();
+
+    return NextResponse.json(
+      {
+        session: serializeSession(sessionDocument as SessionLike),
+        task: serializeTask(task as TaskLike),
+      },
+      { status: 201 }
+    );
   }
 
-  await task.save();
-
+  // No task linked - return only the session
   return NextResponse.json(
     {
       session: serializeSession(sessionDocument as SessionLike),
-      task: serializeTask(task as TaskLike),
     },
     { status: 201 }
   );

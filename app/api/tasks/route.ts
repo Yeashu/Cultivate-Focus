@@ -11,22 +11,34 @@ type TaskLike = {
   userId: { toString(): string };
   title: string;
   description?: string;
-  focusMinutes: number;
+  focusMinutes?: number;
+  focusMinutesGoal?: number | null;
+  scheduledDate?: string | null;
   completed: boolean;
   earnedPoints: number;
   createdAt?: Date;
 };
 
 function serializeTask(task: TaskLike): TaskDTO {
+  const createdAt = task.createdAt?.toISOString?.() ?? new Date().toISOString();
+  // Support both legacy focusMinutes and new focusMinutesGoal
+  const focusMinutesGoal =
+    task.focusMinutesGoal !== undefined && task.focusMinutesGoal !== null
+      ? task.focusMinutesGoal
+      : task.focusMinutes ?? null;
+  // Default scheduledDate to createdAt date if not set
+  const scheduledDate = task.scheduledDate ?? createdAt.slice(0, 10);
+
   return {
     _id: task._id.toString(),
     userId: task.userId.toString(),
     title: task.title,
     description: task.description ?? "",
-    focusMinutes: task.focusMinutes,
+    focusMinutesGoal,
+    scheduledDate,
     completed: task.completed,
     earnedPoints: task.earnedPoints,
-    createdAt: task.createdAt?.toISOString?.() ?? new Date().toISOString(),
+    createdAt,
   };
 }
 
@@ -65,7 +77,19 @@ export async function POST(request: Request) {
   const title = typeof payload.title === "string" ? payload.title.trim() : "";
   const description =
     typeof payload.description === "string" ? payload.description.trim() : "";
-  const focusMinutes = Number(payload.focusMinutes);
+
+  // focusMinutesGoal is now optional (null means no goal)
+  const focusMinutesGoalRaw = payload.focusMinutesGoal;
+  const focusMinutesGoal =
+    focusMinutesGoalRaw !== undefined && focusMinutesGoalRaw !== null
+      ? Number(focusMinutesGoalRaw)
+      : null;
+
+  // scheduledDate defaults to today if not provided
+  const scheduledDate =
+    typeof payload.scheduledDate === "string" && payload.scheduledDate
+      ? payload.scheduledDate
+      : new Date().toISOString().slice(0, 10);
 
   if (!title) {
     return NextResponse.json(
@@ -74,9 +98,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!Number.isFinite(focusMinutes) || focusMinutes <= 0) {
+  // Validate focusMinutesGoal only if provided
+  if (focusMinutesGoal !== null && (!Number.isFinite(focusMinutesGoal) || focusMinutesGoal <= 0)) {
     return NextResponse.json(
-      { message: "Focus minutes must be a positive number." },
+      { message: "Focus minutes goal must be a positive number." },
       { status: 400 }
     );
   }
@@ -85,7 +110,8 @@ export async function POST(request: Request) {
     userId: new Types.ObjectId(session.user.id),
     title,
     description,
-    focusMinutes,
+    focusMinutesGoal,
+    scheduledDate,
   });
 
   return NextResponse.json(
@@ -125,15 +151,25 @@ export async function PUT(request: Request) {
     updates.description = payload.description.trim();
   }
 
-  if (payload.focusMinutes !== undefined) {
-    const minutes = Number(payload.focusMinutes);
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      return NextResponse.json(
-        { message: "Focus minutes must be a positive number." },
-        { status: 400 }
-      );
+  // Handle focusMinutesGoal (can be null to remove goal)
+  if (payload.focusMinutesGoal !== undefined) {
+    if (payload.focusMinutesGoal === null) {
+      updates.focusMinutesGoal = null;
+    } else {
+      const minutes = Number(payload.focusMinutesGoal);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        return NextResponse.json(
+          { message: "Focus minutes goal must be a positive number." },
+          { status: 400 }
+        );
+      }
+      updates.focusMinutesGoal = minutes;
     }
-    updates.focusMinutes = minutes;
+  }
+
+  // Handle scheduledDate
+  if (payload.scheduledDate !== undefined) {
+    updates.scheduledDate = payload.scheduledDate;
   }
 
   if (payload.completed !== undefined) {

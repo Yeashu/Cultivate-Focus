@@ -108,10 +108,11 @@ export default function DashboardPage() {
           </p>
           <div className="mt-4 space-y-4">
             {topTasks.map((task) => {
+              const goal = task.focusMinutesGoal;
               const progress = Math.min(
-                task.focusMinutes === 0
+                !goal || goal === 0
                   ? 0
-                  : Math.round((task.earnedPoints / task.focusMinutes) * 100),
+                  : Math.round((task.earnedPoints / goal) * 100),
                 100
               );
               return (
@@ -134,7 +135,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    {progress}% of {task.focusMinutes} planned minutes
+                    {goal ? `${progress}% of ${goal} planned minutes` : `${task.earnedPoints} Focus Points earned`}
                   </p>
                 </div>
               );

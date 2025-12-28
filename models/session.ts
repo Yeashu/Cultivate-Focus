@@ -7,10 +7,12 @@ const SessionSchema = new Schema(
       ref: "User",
       required: true,
     },
+    // Optional: sessions can be logged without a task ("quick timer" mode)
     taskId: {
       type: Schema.Types.ObjectId,
       ref: "Task",
-      required: true,
+      required: false,
+      default: null,
     },
     duration: {
       type: Number,

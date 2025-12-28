@@ -51,7 +51,7 @@ export default function TasksPage() {
 
   const handleCreateTask = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim() || focusMinutes <= 0) {
+    if (!title.trim()) {
       return;
     }
 
@@ -62,7 +62,7 @@ export default function TasksPage() {
       await createTask({
         title: title.trim(),
         description: description.trim(),
-        focusMinutes,
+        focusMinutesGoal: focusMinutes > 0 ? focusMinutes : null,
       });
       setTitle("");
       setDescription("");
@@ -80,7 +80,7 @@ export default function TasksPage() {
     setEditValues({
       title: task.title,
       description: task.description ?? "",
-      focusMinutes: task.focusMinutes,
+      focusMinutes: task.focusMinutesGoal ?? 30,
     });
   };
 
@@ -96,7 +96,7 @@ export default function TasksPage() {
         id: taskId,
         title: editValues.title.trim(),
         description: editValues.description.trim(),
-        focusMinutes: editValues.focusMinutes,
+        focusMinutesGoal: editValues.focusMinutes > 0 ? editValues.focusMinutes : null,
       });
       setEditingTaskId(null);
       setActionMessage("Task updated.");
@@ -158,17 +158,17 @@ export default function TasksPage() {
           </div>
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-[var(--muted)]" htmlFor="task-focus">
-              Focus minutes goal
+              Focus minutes goal (optional)
             </label>
             <input
               id="task-focus"
               type="number"
-              min={5}
+              min={0}
               max={600}
               value={focusMinutes}
               onChange={(event) => setFocusMinutes(Number(event.target.value))}
+              placeholder="Leave 0 for no goal"
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)] shadow-sm focus:border-[var(--focus)] focus:outline-none"
-              required
             />
           </div>
           <div className="md:col-span-2">
@@ -230,8 +230,9 @@ export default function TasksPage() {
         <div className="space-y-3">
           <AnimatePresence>
             {filteredTasks.map((task) => {
-              const completion = task.focusMinutes
-                ? Math.min(100, Math.round((task.earnedPoints / task.focusMinutes) * 100))
+              const goal = task.focusMinutesGoal;
+              const completion = goal
+                ? Math.min(100, Math.round((task.earnedPoints / goal) * 100))
                 : 0;
               const isEditing = editingTaskId === task._id;
 
@@ -308,7 +309,7 @@ export default function TasksPage() {
                           <span>{completion}% towards goal</span>
                           <span>•</span>
                           <span>
-                            {task.earnedPoints} / {task.focusMinutes} Focus Points
+                            {task.earnedPoints}{task.focusMinutesGoal ? ` / ${task.focusMinutesGoal}` : ''} Focus Points
                           </span>
                           <span>•</span>
                           <span>Created {new Date(task.createdAt).toLocaleDateString()}</span>
