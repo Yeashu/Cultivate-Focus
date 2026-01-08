@@ -233,6 +233,7 @@ function TimerContent() {
   const [breakDuration, setBreakDuration] = useState(5);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   
@@ -282,10 +283,10 @@ function TimerContent() {
   }, [taskIdFromUrl, tasks]);
 
   useEffect(() => {
-    if (!isRunning && !isOverflow) {
+    if (!isRunning && !isOverflow && !isPaused) {
       setTimeLeft((mode === "focus" ? focusDuration : breakDuration) * 60);
     }
-  }, [focusDuration, breakDuration, mode, isRunning, isOverflow]);
+  }, [focusDuration, breakDuration, mode, isRunning, isOverflow, isPaused]);
 
   // Handle overflow timer counting up
   useEffect(() => {
@@ -408,9 +409,11 @@ function TimerContent() {
       playChime(false);
     }
 
-    setMode((prev) => (prev === "focus" ? "break" : "focus"));
-    setIsOverflow(false);
-    setOverflowSeconds(0);
+    // Only switch mode if not manually wrapping up
+    // This avoids the delay when clicking wrap up
+    if (!isOverflow) {
+      setMode((prev) => (prev === "focus" ? "break" : "focus"));
+    }
   };
 
   // Handle mid-flow task linking
@@ -445,17 +448,38 @@ function TimerContent() {
   const toggleTimer = () => {
     setStatusMessage(null);
     setShowCompletionScreen(false);
-    setIsRunning((prev) => !prev);
+    if (isRunning) {
+      // Pausing
+      setIsPaused(true);
+      setIsRunning(false);
+    } else {
+      // Resuming/Starting
+      setIsPaused(false);
+      setIsRunning(true);
+    }
   };
 
   // Stop and complete the session (wrap up)
   const wrapUpSession = async () => {
     setIsRunning(false);
+    setIsPaused(false);
+    
+    // Store session info before completion to avoid async state issues
+    const todayIso = getTodayIso();
+    const actualDuration = getActualDuration();
+    const pointsEarned = calculateFocusPoints(actualDuration);
+    const isDeepSession = actualDuration >= 25;
+    
     await handleCompletion();
+    
+    // Reset overflow state immediately after completion
+    setIsOverflow(false);
+    setOverflowSeconds(0);
   };
 
   const resetTimer = () => {
     setIsRunning(false);
+    setIsPaused(false);
     setTimeLeft(totalSeconds);
     setStatusMessage(null);
     setIsOverflow(false);
@@ -480,6 +504,7 @@ function TimerContent() {
             onClick={() => {
               setMode("focus");
               setIsRunning(false);
+              setIsPaused(false);
             }}
           >
             Focus Mode
@@ -494,6 +519,7 @@ function TimerContent() {
             onClick={() => {
               setMode("break");
               setIsRunning(false);
+              setIsPaused(false);
             }}
           >
             Break Mode
