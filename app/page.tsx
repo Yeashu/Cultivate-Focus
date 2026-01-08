@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
   Flame,
@@ -8,11 +9,33 @@ import {
   Leaf,
 } from "lucide-react";
 
-import { PlantLifecycle } from "@/components/dashboard/plant-lifecycle";
-import { GardenStreak } from "@/components/dashboard/garden-streak";
-import { WeeklyTrend } from "@/components/dashboard/weekly-trend";
 import { useFocus } from "@/context/focus-context";
 import { formatDateLabel, getTodayIso } from "@/lib/dates";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const PlantLifecycle = dynamic(
+  () => import("@/components/dashboard/plant-lifecycle").then((mod) => mod.PlantLifecycle),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-72 w-full rounded-2xl" />,
+  }
+);
+
+const GardenStreak = dynamic(
+  () => import("@/components/dashboard/garden-streak").then((mod) => mod.GardenStreak),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-72 w-full rounded-2xl" />,
+  }
+);
+
+const WeeklyTrend = dynamic(
+  () => import("@/components/dashboard/weekly-trend").then((mod) => mod.WeeklyTrend),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+  }
+);
 
 // Simplified stat display without heavy card containers
 function StatValue({
