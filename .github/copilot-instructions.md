@@ -1,107 +1,94 @@
 # Cultivate Focus - AI Coding Guide
 
 ## Philosophy
+**"Action First, Organization Later"** — productivity as gentle cultivation.
+- **Friction-free**: No mandatory sign-in. Guest-first design.
+- **Minimalism**: Remove UI rather than adding toggles.
+- **Calm Aesthetics**: Soft colors, subtle animations (Framer Motion).
+- **Growth**: Every focus minute counts, even without a task.
 
-**"Action First, Organization Later"** — productivity as gentle cultivation, not a grind.
-
-- **Friction-free start**: No mandatory sign-in, no planning wall. Write a task and start a timer instantly.
-- **Guest-first design**: Full functionality works locally before auth; sessions sync when users choose to sign up.
-- **Minimalism**: Every feature must justify its complexity. Prefer removing UI over adding toggles.
-- **Calm aesthetics**: The interface should feel like a sanctuary, not a dashboard. Soft colors, subtle animations.
-- **Reward all focus**: Quick timer sessions without a task are valid—every minute counts as growth.
-
-When adding features, ask: "Does this let users focus faster, or does it add friction?"
+## Tech Stack
+- **Framework**: Next.js 16 (App Router)
+- **Database**: MongoDB Atlas via Mongoose
+- **Auth**: NextAuth.js v4 (JWT strategy, Credentials provider)
+- **Styling**: Tailwind CSS v4 (configured in CSS, usage via classes + CSS vars)
+- **Icons**: Lucide React
+- **Animations**: Framer Motion
 
 ## Architecture
+**Data Flow**: `FocusContext` (Client) ↔ `/api/*` (Server) ↔ Mongoose Models ↔ MongoDB
 
-Next.js 16 App Router + MongoDB Atlas. Data flows: `FocusContext` (client) ↔ REST API (`/api/*`) ↔ Mongoose → MongoDB.
-
-**Core domains**: Tasks (focus goals), Sessions (logged focus periods earning points), Dashboard (stats/streaks).
-
-**Provider hierarchy** in [app-providers.tsx](components/providers/app-providers.tsx):
+### Provider Hierarchy
+`app/layout.tsx` wraps everything in:
 ```tsx
 <ThemeProvider> → <AuthSessionProvider> → <FocusProvider> → <AppShell>
 ```
 
-## API Route Pattern
+### API Route Pattern
+All `app/api/` routes must:
+1. Validate session via `getAuthSession()`
+2. Connect to DB via `connectToDatabase()`
+3. Ensure all queries are scoped by `userId`
+4. Use `NextResponse` for JSON returns
 
-All routes in `app/api/` must follow this structure:
 ```typescript
-import { getAuthSession } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/mongodb";
-import { Types } from "mongoose";
-
+// Example Pattern
 export async function GET() {
   const session = await getAuthSession();
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "..." }, { status: 401 });
-  }
+  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+  
   await connectToDatabase();
-  const userObjectId = new Types.ObjectId(session.user.id);
-  // Always scope queries by userId
+  const userId = session.user.id;
+  // ... db operations
 }
 ```
 
-## DTOs vs Documents
+## Critical Patterns
 
-- **Documents** ([models/](models/)): Mongoose schemas with `InferSchemaType`, `_id` as ObjectId
-- **DTOs** ([types/index.ts](types/index.ts)): Serialized JSON, `_id` as string, dates as ISO strings
-- Each route defines local `serializeTask()`/`serializeSession()` helpers for conversion
+### 1. DTOs vs Documents
+- **Mongoose Models** (`models/*.ts`): internal, `_id` is ObjectId.
+- **DTOs** (`types/index.ts`): public API contract, `_id` is string, Dates are ISO strings.
+- **Conversion**: ALWAYS use `serializeTask()` / `serializeSession()` helpers inside routes before returning data.
 
-## Client State - FocusContext
+### 2. Styling System
+- **Tailwind v4**: No `tailwind.config.js`. Theme is defined in `app/globals.css`.
+- **Colors**: Use CSS variables for semantic theming.
+  - Good: `bg-[var(--surface)] text-[var(--focus)]`
+  - Bad: `bg-white text-emerald-400`
+- **Key Tokens**:
+  - `--focus`/`--focus-soft`: Primary action/success (Emerald)
+  - `--break`/`--break-soft`: Rest periods (Amber)
+  - `--surface`/`--muted`: Backgrounds and secondary text
 
-[context/focus-context.tsx](context/focus-context.tsx) provides dual-mode storage:
-- **Guest mode**: localStorage (`cultivate-focus:tasks`, `cultivate-focus:sessions`)
-- **Authenticated**: Syncs with API on auth state change via `useSession()`
-- Uses `normalizeTask()`/`normalizeSession()` to handle legacy fields (e.g., `focusMinutes` → `focusMinutesGoal`)
+### 3. Client State (FocusContext)
+- Supports **Dual Mode**:
+  - **Guest**: `localStorage` (keys: `cultivate-focus:tasks`, etc.)
+  - **Auth**: Syncs with API.
+- **Optimization**: Optimistic updates are encouraged for immediate UI feedback.
 
-## Key Domain Patterns
+## Domain Logic
 
-**Tasks & Scheduling**:
-- `scheduledDate`: ISO date string (`YYYY-MM-DD`) or `"someday"` for backlog
-- Drag-and-drop in Weekly Planner updates `scheduledDate` via `updateTask()`
+### Tasks
+- **Scheduling**: `scheduledDate` is `YYYY-MM-DD` or `"someday"`.
+- **Ordering**: Handled via `order` field (drag-and-drop).
+- **Normalization**: Handle legacy `focusMinutes` field by mapping to `focusMinutesGoal`.
 
-**Sessions & Points**:
-- `taskId: null` = quick timer session (no task linked)—fully valid, earns points
-- Points: 1 point per minute of focus (`lib/points.ts`)
+### Sessions & Points
+- **Timer**: Can run without a task (`taskId: null`).
+- **Points**: 1 min = 1 point.
+- **Growth Stages**: Seed (0) → Sprout (60) → Sapling (150) → Bloom (300).
 
-**Growth Stages** (by total points):
-- Seed (0) → Sprout (60) → Sapling (150) → Bloom (300)
+### Streaks
+- Calculated in `FocusContext`.
+- Requires ≥1 session per day to maintain.
 
-**Streak**: Consecutive days with ≥1 session, tracked in `FocusContext`
-
-## Styling
-
-Use CSS variables from [globals.css](app/globals.css), NOT Tailwind color classes:
-```tsx
-className="bg-[var(--surface)] text-[var(--focus)]"  // ✓
-className="bg-white text-emerald-400"                 // ✗
-```
-
-Key tokens: `--focus`/`--focus-soft` (emerald), `--break`/`--break-soft` (amber), `--surface`, `--muted`
-
-## Auth
-
-- NextAuth credentials provider with JWT strategy
-- `getAuthSession()` wraps `getServerSession(authOptions)` - use this in API routes
-- User ID: `session.user.id` (extended in [next-auth.d.ts](next-auth.d.ts))
-
-## Commands
-
-```bash
-npm run dev     # localhost:3000
-npm run lint    # ESLint
-npm run build   # Production build (includes type checking)
-```
-
-## Env Variables
-
-- `MONGODB_URI` - MongoDB Atlas connection string
-- `AUTH_SECRET` - NextAuth JWT signing secret (`openssl rand -base64 32`)
+## Development Workflows
+- **Lint**: `npm run lint` handles ESLint.
+- **Build**: `npm run build` serves as the primary type-checker.
+- **Env**: `MONGODB_URI` and `AUTH_SECRET` are required.
 
 ## Conventions
-
-- Files: kebab-case (`metric-card.tsx`), exports: PascalCase (`MetricCard`)
-- Utilities in `lib/`: lowercase (`auth.ts`, `dates.ts`, `points.ts`)
-- Models: singular (`task.ts`, `session.ts`, `user.ts`)
-- Dates: ISO format `YYYY-MM-DD` strings, use helpers from [lib/dates.ts](lib/dates.ts)
+- **Files**: kebab-case (`task-card.tsx`).
+- **Exports**: PascalCase (`TaskCard`).
+- **Imports**: Use `@/` alias for all internal imports.
+- **Dates**: Use helpers in `lib/dates.ts` ensuring timezone consistency (ISO strings).
