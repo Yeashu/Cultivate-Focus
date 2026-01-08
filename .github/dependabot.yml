@@ -1,11 +1,24 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
 version: 2
 updates:
-  - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "weekly"
+      day: "sunday"
+      time: "06:00"
+      timezone: "Asia/Kolkata"
+
+    # Group updates to avoid PR spam
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        patterns:
+          - "*"
+
+      development-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "*"
+
+    # Limit how many PRs can be open at once
+    open-pull-requests-limit: 2
