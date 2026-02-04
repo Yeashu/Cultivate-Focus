@@ -149,9 +149,14 @@ body {
   color: var(--muted);
 }
 
-.task-line--drag-over {
+.task-line--drag-above {
   border-top: 2px solid var(--focus);
   margin-top: -2px;
+}
+
+.task-line--drag-below {
+  border-bottom: 2px solid var(--focus);
+  margin-bottom: -2px;
 }
 
 .task-line--overdue {

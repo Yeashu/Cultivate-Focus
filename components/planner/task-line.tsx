@@ -10,9 +10,10 @@ interface TaskLineProps {
   task: TaskDTO;
   isPast?: boolean;
   isDragOver?: boolean;
+  dragPosition?: 'above' | 'below' | null;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onDragOver?: () => void;
+  onDragOver?: (position: 'above' | 'below') => void;
   onUpdate: (title: string, focusMinutesGoal?: number) => Promise<void>;
   onToggleComplete: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -66,6 +67,7 @@ export function TaskLine({
   task,
   isPast = false,
   isDragOver = false,
+  dragPosition = null,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -105,7 +107,13 @@ export function TaskLine({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    onDragOver?.();
+    if (!onDragOver) return;
+    
+    // Determine if we're in the top or bottom half of the element
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const position = e.clientY < midpoint ? 'above' : 'below';
+    onDragOver(position);
   };
 
   const handleDragEnd = () => {
@@ -173,7 +181,7 @@ export function TaskLine({
         damping: 25,
         mass: 0.8,
       }}
-      className={`task-line ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""} ${isDragOver ? "task-line--drag-over" : ""}`}
+      className={`task-line ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""} ${isDragOver && dragPosition === 'above' ? "task-line--drag-above" : ""} ${isDragOver && dragPosition === 'below' ? "task-line--drag-below" : ""}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       draggable={!isEditing}
@@ -198,9 +206,11 @@ export function TaskLine({
 
       {/* Drag Handle - only visible on hover */}
       <motion.span 
-        className={`task-handle ${isHovered ? "task-handle--visible" : ""}`}
-        animate={{ opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.15 }}
+        className="task-handle"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isHovered ? 0.6 : 0, x: isHovered ? 0 : 4 }}
+        whileHover={{ opacity: 0.9 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <GripVertical className="h-3 w-3" />
       </motion.span>
@@ -272,9 +282,14 @@ export function TaskLine({
 
       {/* Actions - only visible on hover */}
       <motion.div 
-        className={`task-actions ${isHovered ? "task-actions--visible" : ""}`}
-        animate={{ opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.15 }}
+        className="task-actions"
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ 
+          opacity: isHovered ? 1 : 0, 
+          x: isHovered ? 0 : -8,
+          pointerEvents: isHovered ? "auto" : "none"
+        }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Link
           href={`/timer?taskId=${task._id}`}

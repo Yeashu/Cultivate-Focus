@@ -5,6 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TaskLine } from "./task-line";
 import type { TaskDTO } from "@/types";
 
+interface DragOverState {
+  index: number;
+  position: 'above' | 'below';
+}
+
 interface DayColumnProps {
   date: Date;
   dateIso: string;
@@ -38,7 +43,7 @@ export function DayColumn({
   const [isDropTarget, setIsDropTarget] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverState, setDragOverState] = useState<DragOverState | null>(null);
   const [internalDragTask, setInternalDragTask] = useState<TaskDTO | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +72,7 @@ export function DayColumn({
       clientY > rect.bottom
     ) {
       setIsDropTarget(false);
-      setDragOverIndex(null);
+      setDragOverState(null);
     }
   };
 
@@ -75,21 +80,39 @@ export function DayColumn({
     e.preventDefault();
     setIsDropTarget(false);
     
-    // Handle internal reorder
-    if (internalDragTask && dragOverIndex !== null) {
-      const currentIndex = incompleteTasks.findIndex((t) => t._id === internalDragTask._id);
-      if (currentIndex !== -1 && currentIndex !== dragOverIndex) {
-        const newOrder = [...incompleteTasks];
-        const [removed] = newOrder.splice(currentIndex, 1);
-        newOrder.splice(dragOverIndex, 0, removed);
-        onReorderTasks(newOrder.map((t) => t._id));
+    const draggedTaskId = e.dataTransfer.getData("text/plain");
+    
+    // Handle internal reorder - check if the dragged task belongs to this column
+    const isInternalTask = incompleteTasks.some(t => t._id === draggedTaskId);
+    
+    if (isInternalTask && dragOverState !== null) {
+      const currentIndex = incompleteTasks.findIndex((t) => t._id === draggedTaskId);
+      if (currentIndex !== -1) {
+        // Calculate the target index based on position
+        let targetIndex = dragOverState.index;
+        if (dragOverState.position === 'below') {
+          targetIndex = targetIndex + 1;
+        }
+        
+        // Adjust if moving from before the target
+        if (currentIndex < targetIndex) {
+          targetIndex = targetIndex - 1;
+        }
+        
+        if (currentIndex !== targetIndex) {
+          const newOrder = [...incompleteTasks];
+          const [removed] = newOrder.splice(currentIndex, 1);
+          newOrder.splice(targetIndex, 0, removed);
+          onReorderTasks(newOrder.map((t) => t._id));
+        }
       }
       setInternalDragTask(null);
-      setDragOverIndex(null);
+      setDragOverState(null);
       return;
     }
     
-    setDragOverIndex(null);
+    setDragOverState(null);
+    setInternalDragTask(null);
     onDrop();
   };
 
@@ -100,12 +123,12 @@ export function DayColumn({
 
   const handleInternalDragEnd = useCallback(() => {
     setInternalDragTask(null);
-    setDragOverIndex(null);
+    setDragOverState(null);
     onDragEnd();
   }, [onDragEnd]);
 
-  const handleTaskDragOver = useCallback((index: number) => {
-    setDragOverIndex(index);
+  const handleTaskDragOver = useCallback((index: number, position: 'above' | 'below') => {
+    setDragOverState({ index, position });
   }, []);
 
   const handleEmptyClick = () => {
@@ -167,10 +190,11 @@ export function DayColumn({
               key={task._id}
               task={task}
               isPast={isPast}
-              isDragOver={dragOverIndex === index && internalDragTask?._id !== task._id}
+              isDragOver={dragOverState?.index === index && internalDragTask?._id !== task._id}
+              dragPosition={dragOverState?.index === index ? dragOverState.position : null}
               onDragStart={() => handleInternalDragStart(task)}
               onDragEnd={handleInternalDragEnd}
-              onDragOver={() => handleTaskDragOver(index)}
+              onDragOver={(position) => handleTaskDragOver(index, position)}
               onUpdate={(title: string, focusMinutesGoal?: number) => onUpdateTask(task._id, title, focusMinutesGoal)}
               onToggleComplete={() => onToggleComplete(task)}
               onDelete={() => onDeleteTask(task._id)}
