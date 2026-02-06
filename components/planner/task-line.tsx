@@ -77,7 +77,6 @@ export function TaskLine({
 }: TaskLineProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
-  const [isHovered, setIsHovered] = useState(false);
   const [showCompletionGlow, setShowCompletionGlow] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevCompletedRef = useRef(task.completed);
@@ -181,9 +180,7 @@ export function TaskLine({
         damping: 25,
         mass: 0.8,
       }}
-      className={`task-line ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""} ${isDragOver && dragPosition === 'above' ? "task-line--drag-above" : ""} ${isDragOver && dragPosition === 'below' ? "task-line--drag-below" : ""}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={`task-line group ${isCompleted ? "task-line--completed" : ""} ${isOverdue ? "task-line--overdue" : ""} ${isDragOver && dragPosition === 'above' ? "task-line--drag-above" : ""} ${isDragOver && dragPosition === 'below' ? "task-line--drag-below" : ""}`}
       draggable={!isEditing}
       nativeDragStart={handleDragStart}
       nativeDragEnd={handleDragEnd}
@@ -205,15 +202,9 @@ export function TaskLine({
       </AnimatePresence>
 
       {/* Drag Handle - only visible on hover */}
-      <motion.span 
-        className="task-handle"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isHovered ? 0.6 : 0, x: isHovered ? 0 : 4 }}
-        whileHover={{ opacity: 0.9 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-      >
+      <span className="task-handle">
         <GripVertical className="h-3 w-3" />
-      </motion.span>
+      </span>
 
       {/* Completion Checkbox with animation */}
       <motion.button
@@ -281,16 +272,7 @@ export function TaskLine({
       )}
 
       {/* Actions - only visible on hover */}
-      <motion.div 
-        className="task-actions"
-        initial={{ opacity: 0, x: -8 }}
-        animate={{ 
-          opacity: isHovered ? 1 : 0, 
-          x: isHovered ? 0 : -8,
-          pointerEvents: isHovered ? "auto" : "none"
-        }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-      >
+      <div className="task-actions">
         <Link
           href={`/timer?taskId=${task._id}`}
           className="task-action task-action--play"
@@ -298,16 +280,14 @@ export function TaskLine({
         >
           <Play className="h-3.5 w-3.5" />
         </Link>
-        <motion.button
+        <button
           className="task-action task-action--delete"
           onClick={onDelete}
           aria-label="Delete task"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
         >
           <Trash2 className="h-3.5 w-3.5" />
-        </motion.button>
-      </motion.div>
+        </button>
+      </div>
     </DraggableMotionDiv>
   );
 }

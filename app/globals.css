@@ -179,15 +179,17 @@ body {
   opacity: 0;
   color: var(--muted);
   cursor: grab;
-  transition: opacity 0.15s ease;
+  transform: translateX(4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.task-handle--visible {
-  opacity: 0.4;
+.group:hover .task-handle {
+  opacity: 0.5;
+  transform: translateX(0);
 }
 
-.task-handle--visible:hover {
-  opacity: 0.7;
+.task-handle:hover {
+  opacity: 0.8 !important;
 }
 
 /* Checkbox - Minimal circle */
@@ -273,12 +275,16 @@ body {
   align-items: center;
   gap: 0.25rem;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transform: translateX(-6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
-.task-actions--visible {
+.group:hover .task-actions {
   opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .task-action {
@@ -291,7 +297,15 @@ body {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+}
+
+.task-action:hover {
+  transform: scale(1.1);
+}
+
+.task-action:active {
+  transform: scale(0.95);
 }
 
 .task-action--play {
