@@ -136,13 +136,14 @@ function useChime() {
 }
 
 function useNotifications() {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [permission, setPermission] = useState<NotificationPermission>(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "default"
+  );
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setPermission(Notification.permission);
-    }
     // Create audio element for notification sound
     if (typeof window !== "undefined") {
       audioRef.current = new Audio();
@@ -335,6 +336,9 @@ function TimerContent() {
     return () => {
       window.clearInterval(interval);
     };
+    // playChime, showNotification, focusDuration, selectedTaskId, and tasks
+    // are intentionally excluded: including them would restart the timer interval
+    // on every notification/task change, resetting the countdown mid-session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, isOverflow, mode, totalSeconds]);
 
@@ -463,12 +467,6 @@ function TimerContent() {
   const wrapUpSession = async () => {
     setIsRunning(false);
     setIsPaused(false);
-    
-    // Store session info before completion to avoid async state issues
-    const todayIso = getTodayIso();
-    const actualDuration = getActualDuration();
-    const pointsEarned = calculateFocusPoints(actualDuration);
-    const isDeepSession = actualDuration >= 25;
     
     await handleCompletion();
     
