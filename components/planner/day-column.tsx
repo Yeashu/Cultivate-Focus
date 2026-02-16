@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TaskLine } from "./task-line";
 import type { TaskDTO } from "@/types";
@@ -52,10 +52,16 @@ export function DayColumn({
   const dayNumber = date.getDate();
 
   // Separate incomplete and completed tasks, sort by order
-  const incompleteTasks = tasks
-    .filter((t) => !t.completed)
-    .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
-  const completedTasks = tasks.filter((t) => t.completed);
+  const incompleteTasks = useMemo(
+    () => tasks
+      .filter((t) => !t.completed)
+      .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity)),
+    [tasks]
+  );
+  const completedTasks = useMemo(
+    () => tasks.filter((t) => t.completed),
+    [tasks]
+  );
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

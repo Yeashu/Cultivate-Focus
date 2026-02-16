@@ -1,7 +1,8 @@
+import { memo } from "react";
 import { formatDateLabel } from "@/lib/dates";
 import type { FocusStats } from "@/types";
 
-export function WeeklyProgress({ data }: { data: FocusStats["weekly"] }) {
+export const WeeklyProgress = memo(function WeeklyProgress({ data }: { data: FocusStats["weekly"] }) {
   const maxPoints = Math.max(...data.map((entry) => entry.points), 1);
 
   return (
@@ -39,4 +40,4 @@ export function WeeklyProgress({ data }: { data: FocusStats["weekly"] }) {
       </div>
     </div>
   );
-}
+});

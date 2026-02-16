@@ -352,7 +352,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     try {
       await Promise.all([fetchTasks(), fetchSessions()]);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to refresh focus data:", err);
       setError(err instanceof Error ? err.message : "Unexpected error");
     } finally {
       setLoading(false);

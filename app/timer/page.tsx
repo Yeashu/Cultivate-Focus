@@ -816,6 +816,7 @@ function TimerContent() {
               max={90}
               step={5}
               value={focusDuration}
+              aria-label="Focus duration"
               onChange={(event) => {
                 const value = Number(event.target.value);
                 setFocusDuration(value);
@@ -837,6 +838,7 @@ function TimerContent() {
               max={30}
               step={1}
               value={breakDuration}
+              aria-label="Break duration"
               onChange={(event) => {
                 const value = Number(event.target.value);
                 setBreakDuration(value);

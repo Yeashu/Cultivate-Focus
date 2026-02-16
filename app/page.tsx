@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -84,10 +85,13 @@ export default function DashboardPage() {
   const todayGeneralPoints = todayGeneralSessions.reduce((sum, s) => sum + s.pointsEarned, 0);
 
   // Top focus tasks
-  const topTasks = [...tasks]
-    .filter(t => t.earnedPoints > 0)
-    .sort((a, b) => b.earnedPoints - a.earnedPoints)
-    .slice(0, 3);
+  const topTasks = useMemo(
+    () => [...tasks]
+      .filter(t => t.earnedPoints > 0)
+      .sort((a, b) => b.earnedPoints - a.earnedPoints)
+      .slice(0, 3),
+    [tasks]
+  );
 
   return (
     <div className="flex flex-col gap-10">
