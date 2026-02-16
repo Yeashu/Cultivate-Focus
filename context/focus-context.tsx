@@ -15,7 +15,6 @@ import {
   type CreateTaskPayload,
   type FocusStats,
   type GrowthStage,
-  type GrowthStageName,
   type LogSessionPayload,
   type SessionDTO,
   type StreakInfo,
@@ -24,18 +23,11 @@ import {
   type UpdateTaskPayload,
 } from "@/types";
 import { getPastDates, getTodayIso } from "@/lib/dates";
+import { GROWTH_STAGES } from "@/lib/points";
 
 const LOCAL_TASKS_KEY = "cultivate-focus:tasks";
 const LOCAL_SESSIONS_KEY = "cultivate-focus:sessions";
 const LOCAL_USER_ID = "local-user";
-
-// Growth stage thresholds (in Focus Points)
-const GROWTH_STAGES: { name: GrowthStageName; label: string; threshold: number }[] = [
-  { name: "seed", label: "Seed", threshold: 0 },
-  { name: "sprout", label: "Sprout", threshold: 60 },
-  { name: "sapling", label: "Sapling", threshold: 150 },
-  { name: "bloom", label: "Bloom", threshold: 300 },
-];
 
 function calculateGrowthStage(totalPoints: number): GrowthStage {
   let stageIndex = 0;

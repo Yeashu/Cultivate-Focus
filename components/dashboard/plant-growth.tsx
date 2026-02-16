@@ -1,23 +1,25 @@
 import { Leaf, Sprout, Flower2, Trees } from "lucide-react";
+import { GROWTH_STAGES } from "@/lib/points";
+import type { LucideIcon } from "lucide-react";
 
-const stages = [
-  { threshold: 0, label: "Seed", icon: Sprout },
-  { threshold: 60, label: "Sprout", icon: Leaf },
-  { threshold: 150, label: "Leaf", icon: Flower2 },
-  { threshold: 300, label: "Bloom", icon: Trees },
-];
+const STAGE_ICONS: Record<string, LucideIcon> = {
+  seed: Sprout,
+  sprout: Leaf,
+  sapling: Flower2,
+  bloom: Trees,
+};
 
 export function PlantGrowth({ points }: { points: number }) {
   const currentStageIndex = Math.max(
-    stages.findIndex((stage, index) => {
-      const nextThreshold = stages[index + 1]?.threshold ?? Infinity;
+    GROWTH_STAGES.findIndex((stage, index) => {
+      const nextThreshold = GROWTH_STAGES[index + 1]?.threshold ?? Infinity;
       return points >= stage.threshold && points < nextThreshold;
     }),
     0
   );
 
-  const currentStage = stages[currentStageIndex];
-  const nextStage = stages[currentStageIndex + 1];
+  const currentStage = GROWTH_STAGES[currentStageIndex];
+  const nextStage = GROWTH_STAGES[currentStageIndex + 1];
   const progressWithinStage = (() => {
     if (!nextStage) {
       return 1;
@@ -27,7 +29,7 @@ export function PlantGrowth({ points }: { points: number }) {
     return Math.min(1, progress / range);
   })();
 
-  const Icon = currentStage.icon;
+  const Icon = STAGE_ICONS[currentStage.name] ?? Sprout;
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-[var(--border)]/60 bg-gradient-to-br from-[var(--focus-soft)]/70 to-[var(--accent)]/20 p-6 text-[var(--foreground)] shadow-md">

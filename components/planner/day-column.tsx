@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TaskLine } from "./task-line";
 import type { TaskDTO } from "@/types";
+import { parseTaskInput } from "@/lib/tasks";
 
 interface DragOverState {
   index: number;
@@ -134,19 +135,6 @@ export function DayColumn({
   const handleEmptyClick = () => {
     setIsCreating(true);
     setTimeout(() => inputRef.current?.focus(), 0);
-  };
-
-  // Parse "@30" or "@30m" suffix to extract focus minutes goal
-  const parseTaskInput = (input: string): { title: string; focusMinutesGoal?: number } => {
-    const match = input.match(/^(.+?)\s*@(\d+)m?\s*$/);
-    if (match) {
-      const title = match[1].trim();
-      const minutes = parseInt(match[2], 10);
-      if (title && minutes > 0 && minutes <= 600) {
-        return { title, focusMinutesGoal: minutes };
-      }
-    }
-    return { title: input.trim() };
   };
 
   const handleCreateSubmit = async () => {
