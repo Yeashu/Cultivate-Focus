@@ -84,7 +84,7 @@ function calculateStreak(sessions: SessionDTO[], weeklyDates: string[]): StreakI
       startDate.setDate(startDate.getDate() - 1);
     }
     
-    let checkDate = startDate;
+    const checkDate = startDate;
     while (sessionDates.has(checkDate.toISOString().slice(0, 10))) {
       currentStreak++;
       checkDate.setDate(checkDate.getDate() - 1);
