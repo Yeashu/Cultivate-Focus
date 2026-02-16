@@ -5,6 +5,7 @@ import { motion, AnimatePresence, HTMLMotionProps } from "framer-motion";
 import { Play, Trash2, GripVertical, Check } from "lucide-react";
 import Link from "next/link";
 import type { TaskDTO } from "@/types";
+import { parseTaskInput } from "@/lib/tasks";
 
 interface TaskLineProps {
   task: TaskDTO;
@@ -18,19 +19,6 @@ interface TaskLineProps {
   onToggleComplete: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
-
-// Parse "@30" or "@30m" suffix to extract focus minutes goal
-const parseTaskInput = (input: string): { title: string; focusMinutesGoal?: number } => {
-  const match = input.match(/^(.+?)\s*@(\d+)m?\s*$/);
-  if (match) {
-    const title = match[1].trim();
-    const minutes = parseInt(match[2], 10);
-    if (title && minutes > 0 && minutes <= 600) {
-      return { title, focusMinutesGoal: minutes };
-    }
-  }
-  return { title: input.trim() };
-};
 
 // Custom motion div that properly handles native HTML5 drag events
 interface DraggableMotionDivProps extends Omit<HTMLMotionProps<"div">, "onDragStart" | "onDragEnd" | "onDragOver"> {
@@ -88,9 +76,13 @@ export function TaskLine({
     }
   }, [isEditing]);
 
-  // Trigger completion glow animation when task becomes completed
+  // Trigger completion glow animation when task becomes completed.
+  // setState in effect is intentional: we need to react to prop transitions
+  // (completed going false→true) which can originate from multiple sources
+  // (user toggle, auto-completion on reaching point goal).
   useEffect(() => {
     if (task.completed && !prevCompletedRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowCompletionGlow(true);
       const timer = setTimeout(() => setShowCompletionGlow(false), 1500);
       return () => clearTimeout(timer);
