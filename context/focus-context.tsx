@@ -14,232 +14,24 @@ import { useSession } from "next-auth/react";
 import {
   type CreateTaskPayload,
   type FocusStats,
-  type GrowthStage,
   type LogSessionPayload,
   type SessionDTO,
-  type StreakInfo,
   type TaskDTO,
   type UpdateSessionPayload,
   type UpdateTaskPayload,
 } from "@/types";
 import { getPastDates, getTodayIso } from "@/lib/dates";
-import { GROWTH_STAGES } from "@/lib/points";
-
-const LOCAL_TASKS_KEY = "cultivate-focus:tasks";
-const LOCAL_SESSIONS_KEY = "cultivate-focus:sessions";
-const LOCAL_USER_ID = "local-user";
-
-function calculateGrowthStage(totalPoints: number): GrowthStage {
-  let stageIndex = 0;
-  for (let i = GROWTH_STAGES.length - 1; i >= 0; i--) {
-    if (totalPoints >= GROWTH_STAGES[i].threshold) {
-      stageIndex = i;
-      break;
-    }
-  }
-  
-  const current = GROWTH_STAGES[stageIndex];
-  const next = GROWTH_STAGES[stageIndex + 1] ?? null;
-  
-  let progress = 1;
-  if (next) {
-    const range = next.threshold - current.threshold;
-    const earned = totalPoints - current.threshold;
-    progress = Math.min(1, earned / range);
-  }
-  
-  return {
-    name: current.name,
-    label: current.label,
-    threshold: current.threshold,
-    nextThreshold: next?.threshold ?? null,
-    progress,
-  };
-}
-
-function calculateStreak(sessions: SessionDTO[], weeklyDates: string[]): StreakInfo {
-  const today = getTodayIso();
-  const sessionDates = new Set(sessions.map(s => s.date));
-  const todayComplete = sessionDates.has(today);
-  
-  // Calculate weekly leaves (last 7 days)
-  const weeklyLeaves = weeklyDates.map(date => sessionDates.has(date));
-  
-  // Calculate current streak - count consecutive days backwards from today (or yesterday if today has no session)
-  let currentStreak = 0;
-  const sortedDates = Array.from(sessionDates).sort().reverse();
-  
-  if (sortedDates.length > 0) {
-    // Start from today or yesterday
-    const startDate = new Date(today);
-    if (!todayComplete) {
-      startDate.setDate(startDate.getDate() - 1);
-    }
-    
-    const checkDate = startDate;
-    while (sessionDates.has(checkDate.toISOString().slice(0, 10))) {
-      currentStreak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-  }
-  
-  // Calculate longest streak (simplified - just use current for now)
-  const longestStreak = Math.max(currentStreak, 0);
-  
-  return {
-    current: currentStreak,
-    longest: longestStreak,
-    todayComplete,
-    weeklyLeaves,
-  };
-}
-
-function generateLocalId(): string {
-  const cryptoRef =
-    typeof globalThis !== "undefined"
-      ? (globalThis as typeof globalThis & { crypto?: Crypto }).crypto
-      : undefined;
-  if (cryptoRef?.randomUUID) {
-    return cryptoRef.randomUUID();
-  }
-  const random = Math.random().toString(16).slice(2);
-  return `${Date.now()}-${random}`;
-}
-
-type StoredTask = Partial<TaskDTO> & Record<string, unknown>;
-type StoredSession = Partial<SessionDTO> & Record<string, unknown>;
-
-function parseLocalArray<T>(raw: string | null): T[] {
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch (error) {
-    console.warn("Unable to parse local storage entry", error);
-    return [];
-  }
-}
-
-function normalizeTask(raw: StoredTask): TaskDTO | null {
-  const title = typeof raw.title === "string" ? raw.title.trim() : "";
-  if (!title) {
-    return null;
-  }
-  // Support both legacy focusMinutes and new focusMinutesGoal
-  const legacyFocusMinutes = Number(raw.focusMinutes);
-  const focusMinutesGoalRaw = raw.focusMinutesGoal;
-  const focusMinutesGoal =
-    focusMinutesGoalRaw !== undefined && focusMinutesGoalRaw !== null
-      ? Number(focusMinutesGoalRaw)
-      : Number.isFinite(legacyFocusMinutes) && legacyFocusMinutes > 0
-        ? legacyFocusMinutes
-        : null;
-  const earnedPointsNumber = Number(raw.earnedPoints);
-  const createdAt =
-    typeof raw.createdAt === "string" && raw.createdAt
-      ? raw.createdAt
-      : new Date().toISOString();
-  // Auto-assign scheduledDate to today if missing (client-side migration)
-  const scheduledDate =
-    typeof raw.scheduledDate === "string" && raw.scheduledDate
-      ? raw.scheduledDate
-      : getTodayIso();
-
-  return {
-    _id:
-      typeof raw._id === "string" && raw._id ? raw._id : generateLocalId(),
-    userId:
-      typeof raw.userId === "string" && raw.userId
-        ? raw.userId
-        : LOCAL_USER_ID,
-    title,
-    description: typeof raw.description === "string" ? raw.description : "",
-    focusMinutesGoal:
-      focusMinutesGoal !== null && Number.isFinite(focusMinutesGoal) && focusMinutesGoal > 0
-        ? Math.round(focusMinutesGoal)
-        : null,
-    scheduledDate,
-    order: typeof raw.order === "number" ? raw.order : undefined,
-    completed: Boolean(raw.completed),
-    earnedPoints:
-      Number.isFinite(earnedPointsNumber) && earnedPointsNumber > 0
-        ? Math.round(earnedPointsNumber)
-        : 0,
-    createdAt,
-  };
-}
-
-function normalizeSession(raw: StoredSession): SessionDTO | null {
-  // taskId is now optional - allow null for "quick timer" sessions
-  const taskId =
-    typeof raw.taskId === "string" && raw.taskId ? raw.taskId : null;
-  const durationNumber = Number(raw.duration);
-  const pointsNumber = Number(raw.pointsEarned);
-  const createdAt =
-    typeof raw.createdAt === "string" && raw.createdAt
-      ? raw.createdAt
-      : new Date().toISOString();
-  const isoDate =
-    typeof raw.date === "string" && raw.date
-      ? raw.date
-      : createdAt.slice(0, 10);
-
-  return {
-    _id:
-      typeof raw._id === "string" && raw._id ? raw._id : generateLocalId(),
-    userId:
-      typeof raw.userId === "string" && raw.userId
-        ? raw.userId
-        : LOCAL_USER_ID,
-    taskId,
-    duration:
-      Number.isFinite(durationNumber) && durationNumber > 0
-        ? Math.round(durationNumber)
-        : 0,
-    pointsEarned:
-      Number.isFinite(pointsNumber) && pointsNumber > 0
-        ? Math.round(pointsNumber)
-        : 0,
-    date: isoDate,
-    createdAt,
-  };
-}
-
-function readLocalState(): { tasks: TaskDTO[]; sessions: SessionDTO[] } {
-  if (typeof window === "undefined") {
-    return { tasks: [], sessions: [] };
-  }
-
-  const taskCandidates = parseLocalArray<StoredTask>(
-    window.localStorage.getItem(LOCAL_TASKS_KEY)
-  );
-  const sessionCandidates = parseLocalArray<StoredSession>(
-    window.localStorage.getItem(LOCAL_SESSIONS_KEY)
-  );
-
-  const normalizedTasks = taskCandidates
-    .map(normalizeTask)
-    .filter((task): task is TaskDTO => task !== null)
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-  const normalizedSessions = sessionCandidates
-    .map(normalizeSession)
-    .filter((session): session is SessionDTO => session !== null)
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-  return {
-    tasks: normalizedTasks,
-    sessions: normalizedSessions,
-  };
-}
+import { calculateGrowthStage } from "@/lib/points";
+import { calculateStreak } from "@/lib/stats";
+import { isTaskGoalMet } from "@/lib/tasks";
+import { readJson, readErrorMessage } from "@/lib/fetch-helpers";
+import {
+  generateLocalId,
+  readLocalState,
+  persistLocalTasks,
+  persistLocalSessions,
+  LOCAL_USER_ID,
+} from "@/lib/local-storage";
 
 interface FocusContextValue {
   tasks: TaskDTO[];
@@ -257,24 +49,6 @@ interface FocusContextValue {
 
 const FocusContext = createContext<FocusContextValue | undefined>(undefined);
 
-async function readJson<T>(response: Response): Promise<T | null> {
-  try {
-    return (await response.json()) as T;
-  } catch (error) {
-    if (response.status === 204) {
-      return null;
-    }
-    console.warn("Failed to parse JSON response", error);
-    return null;
-  }
-}
-
-async function readErrorMessage(response: Response) {
-  const data = await readJson<{ message?: string }>(response);
-  const fallback = response.statusText || "Unexpected error";
-  return data?.message ?? fallback;
-}
-
 export function FocusProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
@@ -285,26 +59,6 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [storageInitialized, setStorageInitialized] = useState(false);
-
-  const persistLocalTasks = useCallback((nextTasks: TaskDTO[]) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
-      LOCAL_TASKS_KEY,
-      JSON.stringify(nextTasks)
-    );
-  }, []);
-
-  const persistLocalSessions = useCallback((nextSessions: SessionDTO[]) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
-      LOCAL_SESSIONS_KEY,
-      JSON.stringify(nextSessions)
-    );
-  }, []);
 
   const loadLocalState = useCallback(() => {
     const { tasks: storedTasks, sessions: storedSessions } = readLocalState();
@@ -417,7 +171,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         await refresh();
       }
     },
-    [isAuthenticated, loadLocalState, persistLocalTasks, refresh, storageInitialized]
+    [isAuthenticated, loadLocalState, refresh, storageInitialized]
   );
 
   const updateTask = useCallback(
@@ -492,13 +246,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         await refresh();
       }
     },
-    [
-      isAuthenticated,
-      loadLocalState,
-      persistLocalTasks,
-      refresh,
-      storageInitialized,
-    ]
+    [isAuthenticated, loadLocalState, refresh, storageInitialized]
   );
 
   const deleteTask = useCallback(
@@ -534,13 +282,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
 
       setTasks((prev) => prev.filter((task) => task._id !== id));
     },
-    [
-      isAuthenticated,
-      loadLocalState,
-      persistLocalSessions,
-      persistLocalTasks,
-      storageInitialized,
-    ]
+    [isAuthenticated, loadLocalState, storageInitialized]
   );
 
   const logSession = useCallback(
@@ -580,9 +322,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                 return task;
               }
               const updatedPoints = Math.max(0, task.earnedPoints + points);
-              const goal = task.focusMinutesGoal;
-              const completed =
-                task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+              const completed = isTaskGoalMet({ ...task, earnedPoints: updatedPoints });
               return {
                 ...task,
                 earnedPoints: updatedPoints,
@@ -627,14 +367,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [
-      isAuthenticated,
-      loadLocalState,
-      persistLocalSessions,
-      persistLocalTasks,
-      refresh,
-      storageInitialized,
-    ]
+    [isAuthenticated, loadLocalState, refresh, storageInitialized]
   );
 
   const updateSession = useCallback(
@@ -670,8 +403,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                   return task;
                 }
                 const updatedPoints = task.earnedPoints + sessionToUpdate.pointsEarned;
-                const goal = task.focusMinutesGoal;
-                const completed = task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+                const completed = isTaskGoalMet({ ...task, earnedPoints: updatedPoints });
                 return {
                   ...task,
                   earnedPoints: updatedPoints,
@@ -716,14 +448,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [
-      isAuthenticated,
-      loadLocalState,
-      persistLocalSessions,
-      persistLocalTasks,
-      sessions,
-      storageInitialized,
-    ]
+    [isAuthenticated, loadLocalState, sessions, storageInitialized]
   );
 
   const stats: FocusStats = useMemo(() => {
@@ -737,7 +462,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       (total, session) => total + session.duration,
       0
     );
-    
+
     // Calculate total points from all sessions
     const totalSessionPoints = sessions.reduce(
       (total, session) => total + session.pointsEarned,
@@ -750,7 +475,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     );
     // Use whichever is larger to avoid double counting
     const totalPoints = Math.max(totalSessionPoints, totalTaskPoints);
-    
+
     const weeklyDates = getPastDates(7);
     const weeklyMap = new Map<string, number>(
       weeklyDates.map((date) => [date, 0])
@@ -806,4 +531,22 @@ export function useFocus() {
     throw new Error("useFocus must be used within a FocusProvider");
   }
   return context;
+}
+
+/** Read-only data (dashboard) */
+export function useFocusData() {
+  const { tasks, sessions, stats, loading, error } = useFocus();
+  return { tasks, sessions, stats, loading, error };
+}
+
+/** Task CRUD (planner) */
+export function useTaskActions() {
+  const { tasks, createTask, updateTask, deleteTask, loading } = useFocus();
+  return { tasks, createTask, updateTask, deleteTask, loading };
+}
+
+/** Session operations (timer) */
+export function useSessionActions() {
+  const { tasks, sessions, logSession, updateSession } = useFocus();
+  return { tasks, sessions, logSession, updateSession };
 }

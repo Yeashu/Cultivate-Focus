@@ -10,7 +10,7 @@ import {
   Leaf,
 } from "lucide-react";
 
-import { useFocus } from "@/context/focus-context";
+import { useFocusData } from "@/context/focus-context";
 import { formatDateLabel, getTodayIso } from "@/lib/dates";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -74,7 +74,7 @@ function StatValue({
 }
 
 export default function DashboardPage() {
-  const { stats, tasks, sessions, loading, error } = useFocus();
+  const { stats, tasks, sessions, loading, error } = useFocusData();
   const todayIso = getTodayIso();
 
   const completedTasks = tasks.filter((task) => task.completed).length;
