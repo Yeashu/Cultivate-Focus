@@ -24,6 +24,7 @@ import {
 } from "@/types";
 import { getPastDates, getTodayIso } from "@/lib/dates";
 import { GROWTH_STAGES } from "@/lib/points";
+import { isTaskGoalMet } from "@/lib/tasks";
 
 const LOCAL_TASKS_KEY = "cultivate-focus:tasks";
 const LOCAL_SESSIONS_KEY = "cultivate-focus:sessions";
@@ -580,9 +581,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                 return task;
               }
               const updatedPoints = Math.max(0, task.earnedPoints + points);
-              const goal = task.focusMinutesGoal;
-              const completed =
-                task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+              const completed = isTaskGoalMet({ ...task, earnedPoints: updatedPoints });
               return {
                 ...task,
                 earnedPoints: updatedPoints,
@@ -670,8 +669,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
                   return task;
                 }
                 const updatedPoints = task.earnedPoints + sessionToUpdate.pointsEarned;
-                const goal = task.focusMinutesGoal;
-                const completed = task.completed || (goal !== null && goal !== undefined && updatedPoints >= goal);
+                const completed = isTaskGoalMet({ ...task, earnedPoints: updatedPoints });
                 return {
                   ...task,
                   earnedPoints: updatedPoints,
