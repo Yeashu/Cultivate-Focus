@@ -6,21 +6,23 @@ import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Check,
-  ChevronDown,
-  Link2,
   Pause,
   Play,
   RefreshCw,
   Sparkles,
-  TimerIcon,
-  X,
 } from "lucide-react";
 
 import { useFocus } from "@/context/focus-context";
 import { calculateFocusPoints } from "@/lib/points";
-import { formatDateLabel, getTodayIso } from "@/lib/dates";
+import { getTodayIso } from "@/lib/dates";
 import { useChime } from "@/hooks/use-chime";
 import { useNotifications } from "@/hooks/use-notifications";
+
+import { TimerDisplay } from "@/components/timer/timer-display";
+import { TaskLinkDropdown } from "@/components/timer/task-link-dropdown";
+import { CompletionScreen } from "@/components/timer/completion-screen";
+import { SessionOverview } from "@/components/timer/session-overview";
+import { RecentSessions } from "@/components/timer/recent-sessions";
 
 // Mindful placeholders for unassigned focus sessions
 const MINDFUL_MESSAGES = [
@@ -32,21 +34,11 @@ const MINDFUL_MESSAGES = [
   "Growing inner stillness.",
 ];
 
-function formatTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const remainder = Math.max(seconds % 60, 0)
-    .toString()
-    .padStart(2, "0");
-  return `${minutes}:${remainder}`;
-}
-
 function TimerContent() {
   const { tasks, logSession, sessions, updateSession } = useFocus();
   const searchParams = useSearchParams();
   const taskIdFromUrl = searchParams.get("taskId");
-  
+
   const [mode, setMode] = useState<"focus" | "break">("focus");
   const [focusDuration, setFocusDuration] = useState(25);
   const [breakDuration, setBreakDuration] = useState(5);
@@ -55,11 +47,11 @@ function TimerContent() {
   const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  
+
   // Flow state: track if timer has overflowed past the original goal
   const [isOverflow, setIsOverflow] = useState(false);
   const [overflowSeconds, setOverflowSeconds] = useState(0);
-  
+
   // Completion screen state
   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
   const [completedSessionInfo, setCompletedSessionInfo] = useState<{
@@ -67,28 +59,41 @@ function TimerContent() {
     points: number;
     sessionId: string;
   } | null>(null);
-  
+
   // Mid-flow task linking dropdown state
   const [showTaskDropdown, setShowTaskDropdown] = useState(false);
-  
+
   // Mindful message for unassigned sessions
-  const [mindfulMessage] = useState(() => 
+  const [mindfulMessage] = useState(() =>
     MINDFUL_MESSAGES[Math.floor(Math.random() * MINDFUL_MESSAGES.length)]
   );
-  
+
   const playChime = useChime();
   const { permission, requestPermission, showNotification } = useNotifications();
 
   const totalSeconds = mode === "focus" ? focusDuration * 60 : breakDuration * 60;
-  const progress = isOverflow 
-    ? 1 
+  const progress = isOverflow
+    ? 1
     : Math.min(1, Math.max(0, 1 - timeLeft / totalSeconds));
 
   // Get today's tasks for the "assign to task" dropdown
   const todayIso = getTodayIso();
-  const todayTasks = useMemo(() => 
-    tasks.filter(t => t.scheduledDate === todayIso && !t.completed),
+  const todayTasks = useMemo(
+    () => tasks.filter((t) => t.scheduledDate === todayIso && !t.completed),
     [tasks, todayIso]
+  );
+  const otherTasks = useMemo(
+    () => tasks.filter((t) => !t.completed && t.scheduledDate !== todayIso),
+    [tasks, todayIso]
+  );
+  const completedTasks = useMemo(
+    () => tasks.filter((t) => t.completed),
+    [tasks]
+  );
+
+  const selectedTaskTitle = useMemo(
+    () => (selectedTaskId ? tasks.find((t) => t._id === selectedTaskId)?.title ?? null : null),
+    [selectedTaskId, tasks]
   );
 
   // Set selected task from URL if provided
@@ -135,7 +140,7 @@ function TimerContent() {
           playChime();
           setIsOverflow(true);
           setOverflowSeconds(0);
-          
+
           // Show gentle notification that goal is reached
           const taskTitle = selectedTaskId
             ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "Focus"
@@ -144,7 +149,7 @@ function TimerContent() {
             "Focus Goal Reached! 🌱",
             `${taskTitle}: Your ${focusDuration} minutes are complete. Keep going or wrap up when ready.`
           );
-          
+
           return 0;
         }
         return prev - 1;
@@ -181,17 +186,14 @@ function TimerContent() {
           pointsEarned,
           date: todayIso,
         });
-        
+
         const taskTitle = selectedTaskId
           ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "Task"
           : null;
-        
+
         // Show completion screen only if no task was assigned and there are tasks to assign
         if (!selectedTaskId && tasks.length > 0) {
-          // Get the most recently added session (should be the one we just logged)
-          // We'll use a timeout to let the state update, then grab the latest session
           setTimeout(() => {
-            // Find sessions array will have updated by now
             const latestSession = sessions[0];
             if (latestSession && !latestSession.taskId) {
               setCompletedSessionInfo({
@@ -206,12 +208,12 @@ function TimerContent() {
           }, 100);
         } else {
           setStatusMessage(
-            taskTitle 
+            taskTitle
               ? `Session logged to "${taskTitle}"! +${pointsEarned} FP earned.`
               : `Session logged! +${pointsEarned} Focus Points earned.`
           );
         }
-        
+
         showNotification(
           isDeepSession ? "Deep Focus Complete! 🌳" : "Focus Session Complete! 🎯",
           `${taskTitle ?? "Focus"}: +${pointsEarned} Focus Points earned! Time for a mindful break.`
@@ -231,38 +233,33 @@ function TimerContent() {
       playChime(false);
     }
 
-    // Only switch mode if not manually wrapping up
-    // This avoids the delay when clicking wrap up
     if (!isOverflow) {
       setMode((prev) => (prev === "focus" ? "break" : "focus"));
     }
   };
 
-  // Handle mid-flow task linking
   const handleLinkTask = (taskId: string) => {
     setSelectedTaskId(taskId);
     setShowTaskDropdown(false);
   };
 
-  // Handle assigning task from completion screen
   const handleAssignFromCompletion = async (taskId: string) => {
     if (!completedSessionInfo) return;
-    
+
     try {
-      // Update the session to link it to the selected task
       await updateSession({
         id: completedSessionInfo.sessionId,
         taskId,
       });
-      
-      const taskTitle = tasks.find(t => t._id === taskId)?.title ?? "Task";
+
+      const taskTitle = tasks.find((t) => t._id === taskId)?.title ?? "Task";
       setStatusMessage(`Session linked to "${taskTitle}"! +${completedSessionInfo.points} FP`);
     } catch (error) {
       setStatusMessage(
         error instanceof Error ? error.message : "Unable to link session to task."
       );
     }
-    
+
     setShowCompletionScreen(false);
     setCompletedSessionInfo(null);
   };
@@ -271,24 +268,18 @@ function TimerContent() {
     setStatusMessage(null);
     setShowCompletionScreen(false);
     if (isRunning) {
-      // Pausing
       setIsPaused(true);
       setIsRunning(false);
     } else {
-      // Resuming/Starting
       setIsPaused(false);
       setIsRunning(true);
     }
   };
 
-  // Stop and complete the session (wrap up)
   const wrapUpSession = async () => {
     setIsRunning(false);
     setIsPaused(false);
-    
     await handleCompletion();
-    
-    // Reset overflow state immediately after completion
     setIsOverflow(false);
     setOverflowSeconds(0);
   };
@@ -305,6 +296,9 @@ function TimerContent() {
   };
 
   const recentSessions = useMemo(() => sessions.slice(0, 4), [sessions]);
+
+  const expectedPoints =
+    mode === "focus" ? calculateFocusPoints(getActualDuration()) : 0;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[2fr,1fr]">
@@ -351,128 +345,30 @@ function TimerContent() {
           )}
         </div>
 
-        <div className="flex flex-col items-center gap-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-lg" style={{ boxShadow: "var(--shadow)" }}>
-          <div
-            className={`relative flex h-64 w-64 items-center justify-center rounded-full bg-[var(--surface-muted)] ${isOverflow ? "animate-pulse" : ""}`}
-            style={{
-              background: isOverflow
-                ? `conic-gradient(var(--focus) 360deg, var(--focus) 0deg)`
-                : `conic-gradient(var(--focus) ${progress * 360}deg, rgba(148, 163, 184, 0.35) 0deg)`
-            }}
-          >
-            <div className="flex h-56 w-56 flex-col items-center justify-center gap-2 rounded-full bg-[var(--surface)] text-[var(--foreground)] shadow-inner">
-              <TimerIcon className="h-6 w-6 text-[var(--muted)]" />
-              {isOverflow ? (
-                <>
-                  <span className="text-5xl font-semibold tracking-tight text-[var(--focus)]">
-                    +{formatTime(overflowSeconds)}
-                  </span>
-                  <span className="text-xs font-medium text-[var(--focus)]">
-                    Flow State 🌿
-                  </span>
-                </>
-              ) : (
-                <span className="text-5xl font-semibold tracking-tight">
-                  {formatTime(timeLeft)}
-                </span>
-              )}
-              <span className="max-w-[180px] text-sm text-[var(--muted)]">
-                {mode === "focus" 
-                  ? (selectedTaskId 
-                      ? tasks.find(t => t._id === selectedTaskId)?.title ?? "Stay focused"
-                      : mindfulMessage)
-                  : "Release and recharge"}
-              </span>
-            </div>
-          </div>
+        <div
+          className="flex flex-col items-center gap-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-lg"
+          style={{ boxShadow: "var(--shadow)" }}
+        >
+          <TimerDisplay
+            progress={progress}
+            isOverflow={isOverflow}
+            overflowSeconds={overflowSeconds}
+            timeLeft={timeLeft}
+            mode={mode}
+            selectedTaskTitle={selectedTaskTitle}
+            mindfulMessage={mindfulMessage}
+          />
 
           {/* Mid-flow task linking - only show when running without a task */}
           {isRunning && !selectedTaskId && mode === "focus" && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowTaskDropdown(!showTaskDropdown)}
-                className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)]/60 px-4 py-2 text-sm text-[var(--muted)] transition-colors hover:border-[var(--focus)] hover:text-[var(--focus)]"
-              >
-                <Link2 className="h-4 w-4" />
-                Link to task
-                <ChevronDown className={`h-4 w-4 transition-transform ${showTaskDropdown ? "rotate-180" : ""}`} />
-              </button>
-              
-              {showTaskDropdown && tasks.length > 0 && (
-                <div className="absolute left-1/2 top-full z-10 mt-2 max-h-64 w-80 -translate-x-1/2 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg">
-                  {/* Show today's tasks first */}
-                  {todayTasks.length > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                        Today
-                      </div>
-                      {todayTasks.map((task) => (
-                        <button
-                          key={task._id}
-                          type="button"
-                          onClick={() => handleLinkTask(task._id)}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--surface-muted)]"
-                        >
-                          <span className="flex-1 truncate">{task.title}</span>
-                          {task.focusMinutesGoal && (
-                            <span className="text-xs text-[var(--muted)]">
-                              {task.focusMinutesGoal}m
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                  
-                  {/* Show other incomplete tasks */}
-                  {tasks.filter(t => !t.completed && t.scheduledDate !== todayIso).length > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                        Other Days
-                      </div>
-                      {tasks
-                        .filter(t => !t.completed && t.scheduledDate !== todayIso)
-                        .map((task) => (
-                          <button
-                            key={task._id}
-                            type="button"
-                            onClick={() => handleLinkTask(task._id)}
-                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--surface-muted)]"
-                          >
-                            <span className="flex-1 truncate">{task.title}</span>
-                            <span className="text-xs text-[var(--muted)]">
-                              {task.scheduledDate}
-                            </span>
-                          </button>
-                        ))}
-                    </>
-                  )}
-                  
-                  {/* Show completed tasks */}
-                  {tasks.filter(t => t.completed).length > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                        Completed
-                      </div>
-                      {tasks
-                        .filter(t => t.completed)
-                        .map((task) => (
-                          <button
-                            key={task._id}
-                            type="button"
-                            onClick={() => handleLinkTask(task._id)}
-                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)]"
-                          >
-                            <span className="flex-1 truncate">{task.title}</span>
-                            <span className="text-xs">✓</span>
-                          </button>
-                        ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <TaskLinkDropdown
+              isOpen={showTaskDropdown}
+              onToggle={() => setShowTaskDropdown(!showTaskDropdown)}
+              onSelect={handleLinkTask}
+              todayTasks={todayTasks}
+              otherTasks={otherTasks}
+              completedTasks={completedTasks}
+            />
           )}
 
           {/* Show linked task indicator when running with a task */}
@@ -480,7 +376,7 @@ function TimerContent() {
             <div className="flex items-center gap-2 rounded-full bg-[var(--focus-soft)]/40 px-4 py-2 text-sm text-[var(--focus)]">
               <Check className="h-4 w-4" />
               <span className="max-w-[200px] truncate">
-                {tasks.find(t => t._id === selectedTaskId)?.title}
+                {selectedTaskTitle}
               </span>
             </div>
           )}
@@ -505,8 +401,7 @@ function TimerContent() {
                 </>
               )}
             </button>
-            
-            {/* Wrap Up button - only show when in overflow mode */}
+
             {isOverflow && isRunning && (
               <button
                 type="button"
@@ -516,7 +411,7 @@ function TimerContent() {
                 <Sparkles className="h-4 w-4" /> Wrap Up
               </button>
             )}
-            
+
             <button
               type="button"
               className="flex items-center gap-2 rounded-full border border-[var(--border)] px-6 py-3 text-sm font-semibold text-[var(--muted)] transition-colors hover:border-[var(--muted)] hover:text-[var(--foreground)]"
@@ -526,93 +421,18 @@ function TimerContent() {
             </button>
           </div>
 
-          {/* Completion Screen - Gentle prompt to assign task */}
           {showCompletionScreen && completedSessionInfo && (
-            <div className="w-full rounded-2xl border border-[var(--focus)]/30 bg-[var(--focus-soft)]/20 p-6 text-left">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--focus)]/10">
-                  <Sparkles className="h-6 w-6 text-[var(--focus)]" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                    Session Complete! 🌱
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    You focused for {completedSessionInfo.duration} minutes and earned{" "}
-                    <span className="font-semibold text-[var(--focus)]">
-                      +{completedSessionInfo.points} FP
-                    </span>
-                  </p>
-                  
-                  {tasks.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-[var(--foreground)]">
-                        Link this session to a task?
-                      </p>
-                      
-                      {/* Quick picks from today's tasks */}
-                      {todayTasks.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {todayTasks.slice(0, 3).map((task) => (
-                            <button
-                              key={task._id}
-                              type="button"
-                              onClick={() => handleAssignFromCompletion(task._id)}
-                              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--focus)] hover:bg-[var(--focus-soft)]/30"
-                            >
-                              {task.title.length > 20 ? `${task.title.slice(0, 20)}...` : task.title}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Full task dropdown for all tasks */}
-                      <div className="mt-3">
-                        <select
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAssignFromCompletion(e.target.value);
-                            }
-                          }}
-                          defaultValue=""
-                          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] focus:border-[var(--focus)] focus:outline-none"
-                        >
-                          <option value="" disabled>
-                            {todayTasks.length > 0 ? "Or choose another task..." : "Choose a task..."}
-                          </option>
-                          {tasks.filter(t => !t.completed).map((task) => (
-                            <option key={task._id} value={task._id}>
-                              {task.title} {task.scheduledDate === todayIso ? "(today)" : `(${task.scheduledDate})`}
-                            </option>
-                          ))}
-                          {tasks.filter(t => t.completed).length > 0 && (
-                            <optgroup label="Completed">
-                              {tasks.filter(t => t.completed).map((task) => (
-                                <option key={task._id} value={task._id}>
-                                  {task.title} ✓
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </select>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCompletionScreen(false);
-                          setStatusMessage(`Session logged! +${completedSessionInfo.points} FP`);
-                        }}
-                        className="mt-3 flex items-center gap-1 text-sm text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
-                      >
-                        <X className="h-3 w-3" />
-                        Keep as General Focus
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <CompletionScreen
+              info={completedSessionInfo}
+              tasks={tasks}
+              todayTasks={todayTasks}
+              todayIso={todayIso}
+              onAssign={handleAssignFromCompletion}
+              onDismiss={() => {
+                setShowCompletionScreen(false);
+                setStatusMessage(`Session logged! +${completedSessionInfo.points} FP`);
+              }}
+            />
           )}
 
           {statusMessage && !showCompletionScreen ? (
@@ -694,86 +514,16 @@ function TimerContent() {
       </section>
 
       <aside className="flex flex-col gap-6">
-        <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Session overview
-          </h2>
-          <div className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-            <div className="flex items-center justify-between">
-              <span>Mode</span>
-              <span className="font-medium text-[var(--foreground)]">
-                {mode === "focus" ? (isOverflow ? "Flow State 🌿" : "Focus") : "Break"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>{isOverflow ? "Base + overflow" : "Duration"}</span>
-              <span className="font-medium text-[var(--foreground)]">
-                {isOverflow 
-                  ? `${focusDuration} + ${Math.floor(overflowSeconds / 60)} min`
-                  : `${totalSeconds / 60} min`
-                }
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Expected points</span>
-              <span className="font-medium text-[var(--foreground)]">
-                {mode === "focus"
-                  ? calculateFocusPoints(getActualDuration())
-                  : 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Task</span>
-              <span className="max-w-[60%] truncate font-medium text-[var(--foreground)]">
-                {selectedTaskId
-                  ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "—"
-                  : "🌿 General Focus"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Recent sessions
-          </h2>
-          <div className="mt-4 space-y-3">
-            {recentSessions.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">
-                Sessions you complete will appear here.
-              </p>
-            ) : (
-              recentSessions.map((session) => {
-                const taskTitle = session.taskId 
-                  ? tasks.find((task) => task._id === session.taskId)?.title ?? "Task"
-                  : "General Focus";
-                return (
-                  <div
-                    key={session._id}
-                    className="flex items-center justify-between rounded-2xl bg-[var(--surface-muted)]/40 p-3 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {session.taskId ? taskTitle : (
-                          <span className="flex items-center gap-1">
-                            <span className="text-[var(--focus)]">🌿</span>
-                            {taskTitle}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-[var(--muted)]">
-                        {formatDateLabel(session.date)} · {session.duration} min
-                      </p>
-                    </div>
-                    <span className="font-semibold text-[var(--focus)]">
-                      +{session.pointsEarned} FP
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        <SessionOverview
+          mode={mode}
+          isOverflow={isOverflow}
+          focusDuration={focusDuration}
+          overflowSeconds={overflowSeconds}
+          totalSeconds={totalSeconds}
+          expectedPoints={expectedPoints}
+          selectedTaskTitle={selectedTaskTitle}
+        />
+        <RecentSessions sessions={recentSessions} tasks={tasks} />
       </aside>
     </div>
   );
