@@ -13,8 +13,14 @@ export function generateLocalId(): string {
   if (cryptoRef?.randomUUID) {
     return cryptoRef.randomUUID();
   }
-  const random = Math.random().toString(16).slice(2);
-  return `${Date.now()}-${random}`;
+  // Fallback: use crypto.getRandomValues if available (safer than Math.random)
+  if (cryptoRef?.getRandomValues) {
+    const arr = new Uint8Array(12);
+    cryptoRef.getRandomValues(arr);
+    return Array.from(arr, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  // Last resort: timestamp + sequence (for environments without crypto)
+  return `${Date.now()}-${Math.floor(Math.random() * 10000000)}`;
 }
 
 type StoredTask = Partial<TaskDTO> & Record<string, unknown>;
