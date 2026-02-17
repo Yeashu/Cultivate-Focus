@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useFocus } from "@/context/focus-context";
+import { useTaskActions } from "@/context/focus-context";
 import { DayColumn } from "./day-column";
 import { SomedayHorizon } from "./someday-horizon";
 import type { TaskDTO } from "@/types";
@@ -35,7 +35,7 @@ function formatMonthYear(dates: { date: Date }[]): string {
 }
 
 export function WeeklyPlanner() {
-  const { tasks, createTask, updateTask, deleteTask, loading } = useFocus();
+  const { tasks, createTask, updateTask, deleteTask, loading } = useTaskActions();
   const [weekOffset, setWeekOffset] = useState(0);
   const [draggedTask, setDraggedTask] = useState<TaskDTO | null>(null);
 

@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { useFocus } from "@/context/focus-context";
+import { useSessionActions } from "@/context/focus-context";
 import { calculateFocusPoints } from "@/lib/points";
 import { getTodayIso } from "@/lib/dates";
 import { useChime } from "@/hooks/use-chime";
@@ -35,7 +35,7 @@ const MINDFUL_MESSAGES = [
 ];
 
 function TimerContent() {
-  const { tasks, logSession, sessions, updateSession } = useFocus();
+  const { tasks, logSession, sessions, updateSession } = useSessionActions();
   const searchParams = useSearchParams();
   const taskIdFromUrl = searchParams.get("taskId");
 

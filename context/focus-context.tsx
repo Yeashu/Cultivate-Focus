@@ -532,3 +532,21 @@ export function useFocus() {
   }
   return context;
 }
+
+/** Read-only data (dashboard) */
+export function useFocusData() {
+  const { tasks, sessions, stats, loading, error } = useFocus();
+  return { tasks, sessions, stats, loading, error };
+}
+
+/** Task CRUD (planner) */
+export function useTaskActions() {
+  const { tasks, createTask, updateTask, deleteTask, loading } = useFocus();
+  return { tasks, createTask, updateTask, deleteTask, loading };
+}
+
+/** Session operations (timer) */
+export function useSessionActions() {
+  const { tasks, sessions, logSession, updateSession } = useFocus();
+  return { tasks, sessions, logSession, updateSession };
+}
