@@ -504,3 +504,13 @@ body {
   padding: 1rem;
 }
 
+/* ── Floating Timer Widget – mobile full-width bottom bar ─────────────── */
+@media (max-width: 639px) {
+  .floating-timer-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    width: auto !important;
+  }
+}
