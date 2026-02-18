@@ -272,6 +272,23 @@ body {
   opacity: 0.7;
 }
 
+/* Task progress bar underline */
+.task-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.task-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+}
+
 /* Task Input - Seamless editing */
 .task-input {
   flex: 1;

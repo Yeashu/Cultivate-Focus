@@ -185,6 +185,14 @@ export function TaskLine({
   const isCompleted = task.completed;
   const isOverdue = isPast && !isCompleted;
 
+  // Progress bar: earnedPoints (1pt = 1 min) vs focusMinutesGoal
+  const goal = task.focusMinutesGoal ?? (task.focusMinutes ?? null);
+  const progressRatio = isCompleted
+    ? 1
+    : goal && goal > 0
+    ? Math.min(1, (task.earnedPoints ?? 0) / goal)
+    : null; // null = no goal, show faint track only
+
   return (
     <DraggableMotionDiv
       layout
@@ -395,6 +403,26 @@ export function TaskLine({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
+      </div>
+
+      {/* Progress bar underline */}
+      <div className="task-progress-track">
+        {progressRatio !== null && (
+          <motion.div
+            className="task-progress-fill"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressRatio * 100}%` }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            style={{
+              backgroundColor: isCompleted
+                ? "var(--focus)"
+                : isOverdue
+                ? "var(--break)"
+                : "var(--focus)",
+              opacity: isCompleted ? 0.5 : 0.75,
+            }}
+          />
+        )}
       </div>
     </DraggableMotionDiv>
   );
