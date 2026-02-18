@@ -449,6 +449,10 @@ body {
   display: none;
 }
 
+.someday-drawer {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .someday-overlay {
     display: block;
@@ -459,6 +463,7 @@ body {
   }
 
   .someday-drawer {
+    display: block;
     position: fixed;
     top: 0;
     right: 0;
