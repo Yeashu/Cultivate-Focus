@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Pause,
   Play,
-  Square,
+  RefreshCw,
   Sparkles,
   Coffee,
   ChevronUp,
@@ -472,10 +472,10 @@ export function FloatingTimerWidget() {
                 ) : (
                   <button
                     type="button"
-                    onClick={handleWrapUp}
+                    onClick={() => { resetTimer(); setShowBreakPrompt(false); }}
                     className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:border-[var(--muted)] hover:text-[var(--foreground)]"
                   >
-                    <Square className="h-3 w-3" /> Stop
+                    <RefreshCw className="h-3 w-3" /> Reset
                   </button>
                 )}
               </div>
