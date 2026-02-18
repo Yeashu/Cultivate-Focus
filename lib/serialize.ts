@@ -8,6 +8,7 @@ export type TaskLike = {
   focusMinutes?: number;
   focusMinutesGoal?: number | null;
   scheduledDate?: string | null;
+  order?: number | null;
   completed: boolean;
   earnedPoints: number;
   createdAt?: Date;
@@ -45,6 +46,7 @@ export function serializeTask(task: TaskLike): TaskDTO {
     description: task.description ?? "",
     focusMinutesGoal,
     scheduledDate,
+    order: task.order ?? undefined,
     completed: task.completed,
     earnedPoints: task.earnedPoints,
     createdAt,

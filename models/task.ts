@@ -47,6 +47,11 @@ const TaskSchema = new Schema(
       default: 0,
       min: 0,
     },
+    order: {
+      type: Number,
+      required: false,
+      default: null,
+    },
   },
   {
     timestamps: true,

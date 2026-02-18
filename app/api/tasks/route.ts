@@ -140,6 +140,10 @@ export async function PUT(request: Request) {
     updates.completed = Boolean(payload.completed);
   }
 
+  if (payload.order !== undefined) {
+    updates.order = payload.order === null ? null : Number(payload.order);
+  }
+
   const updatedTask = await TaskModel.findOneAndUpdate(
     { _id: id, userId: session.user.id },
     updates,
