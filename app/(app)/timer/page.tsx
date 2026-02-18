@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { Suspense, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 
 import { useSessionActions } from "@/context/focus-context";
+import { useTimerFull } from "@/context/timer-context";
+import { useNotifications } from "@/hooks/use-notifications";
 import { calculateFocusPoints } from "@/lib/points";
 import { getTodayIso } from "@/lib/dates";
-import { useChime } from "@/hooks/use-chime";
-import { useNotifications } from "@/hooks/use-notifications";
 
 import { TimerDisplay } from "@/components/timer/timer-display";
 import { TaskLinkDropdown } from "@/components/timer/task-link-dropdown";
@@ -24,60 +24,46 @@ import { CompletionScreen } from "@/components/timer/completion-screen";
 import { SessionOverview } from "@/components/timer/session-overview";
 import { RecentSessions } from "@/components/timer/recent-sessions";
 
-// Mindful placeholders for unassigned focus sessions
-const MINDFUL_MESSAGES = [
-  "Cultivating Focus...",
-  "Stay with your breath.",
-  "Present moment awareness.",
-  "One thing at a time.",
-  "Nurturing concentration.",
-  "Growing inner stillness.",
-];
-
 function TimerContent() {
-  const { tasks, logSession, sessions, updateSession } = useSessionActions();
+  const { tasks, sessions } = useSessionActions();
   const searchParams = useSearchParams();
   const taskIdFromUrl = searchParams.get("taskId");
+  const { permission, requestPermission } = useNotifications();
 
-  const [mode, setMode] = useState<"focus" | "break">("focus");
-  const [focusDuration, setFocusDuration] = useState(25);
-  const [breakDuration, setBreakDuration] = useState(5);
-  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const {
+    mode,
+    focusDuration,
+    breakDuration,
+    selectedTaskId,
+    isRunning,
+    isPaused,
+    timeLeft,
+    isOverflow,
+    overflowSeconds,
+    showCompletionScreen,
+    completedSessionInfo,
+    statusMessage,
+    mindfulMessage,
+    progress,
+    totalSeconds,
+    setMode,
+    setFocusDuration,
+    setBreakDuration,
+    setSelectedTaskId,
+    toggleTimer,
+    wrapUpSession,
+    resetTimer,
+    setShowCompletionScreen,
+    setStatusMessage,
+    handleAssignFromCompletion,
+    switchTask,
+  } = useTimerFull();
 
-  // Flow state: track if timer has overflowed past the original goal
-  const [isOverflow, setIsOverflow] = useState(false);
-  const [overflowSeconds, setOverflowSeconds] = useState(0);
-
-  // Completion screen state
-  const [showCompletionScreen, setShowCompletionScreen] = useState(false);
-  const [completedSessionInfo, setCompletedSessionInfo] = useState<{
-    duration: number;
-    points: number;
-    sessionId: string;
-  } | null>(null);
-
-  // Mid-flow task linking dropdown state
+  // Local UI toggle for mid-flow task dropdown (not shared state)
   const [showTaskDropdown, setShowTaskDropdown] = useState(false);
 
-  // Mindful message for unassigned sessions
-  const [mindfulMessage] = useState(() =>
-    MINDFUL_MESSAGES[Math.floor(Math.random() * MINDFUL_MESSAGES.length)]
-  );
-
-  const playChime = useChime();
-  const { permission, requestPermission, showNotification } = useNotifications();
-
-  const totalSeconds = mode === "focus" ? focusDuration * 60 : breakDuration * 60;
-  const progress = isOverflow
-    ? 1
-    : Math.min(1, Math.max(0, 1 - timeLeft / totalSeconds));
-
-  // Get today's tasks for the "assign to task" dropdown
   const todayIso = getTodayIso();
+
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.scheduledDate === todayIso && !t.completed),
     [tasks, todayIso]
@@ -101,204 +87,25 @@ function TimerContent() {
     if (taskIdFromUrl) {
       const taskExists = tasks.some((t) => t._id === taskIdFromUrl);
       if (taskExists) {
-        setSelectedTaskId(taskIdFromUrl);
+        switchTask(taskIdFromUrl);
       }
     }
-  }, [taskIdFromUrl, tasks]);
-
-  useEffect(() => {
-    if (!isRunning && !isOverflow && !isPaused) {
-      setTimeLeft((mode === "focus" ? focusDuration : breakDuration) * 60);
-    }
-  }, [focusDuration, breakDuration, mode, isRunning, isOverflow, isPaused]);
-
-  // Handle overflow timer counting up
-  useEffect(() => {
-    if (!isRunning || !isOverflow) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => {
-      setOverflowSeconds((prev) => prev + 1);
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [isRunning, isOverflow]);
-
-  useEffect(() => {
-    if (!isRunning || isOverflow) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(interval);
-          // Don't stop the timer - enter overflow mode for flow state
-          playChime();
-          setIsOverflow(true);
-          setOverflowSeconds(0);
-
-          // Show gentle notification that goal is reached
-          const taskTitle = selectedTaskId
-            ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "Focus"
-            : "Focus";
-          showNotification(
-            "Focus Goal Reached! 🌱",
-            `${taskTitle}: Your ${focusDuration} minutes are complete. Keep going or wrap up when ready.`
-          );
-
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-    // playChime, showNotification, focusDuration, selectedTaskId, and tasks
-    // are intentionally excluded: including them would restart the timer interval
-    // on every notification/task change, resetting the countdown mid-session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning, isOverflow, mode, totalSeconds]);
-
-  // Calculate actual duration including overflow time
-  const getActualDuration = useCallback(() => {
-    const baseDuration = totalSeconds / 60;
-    const overflowMinutes = Math.floor(overflowSeconds / 60);
-    return baseDuration + overflowMinutes;
-  }, [totalSeconds, overflowSeconds]);
-
-  const handleCompletion = async () => {
-    const todayIso = getTodayIso();
-    const actualDuration = getActualDuration();
-    const isDeepSession = actualDuration >= 25;
-
-    if (mode === "focus") {
-      try {
-        const pointsEarned = calculateFocusPoints(actualDuration);
-        await logSession({
-          taskId: selectedTaskId || undefined,
-          duration: actualDuration,
-          pointsEarned,
-          date: todayIso,
-        });
-
-        const taskTitle = selectedTaskId
-          ? tasks.find((task) => task._id === selectedTaskId)?.title ?? "Task"
-          : null;
-
-        // Show completion screen only if no task was assigned and there are tasks to assign
-        if (!selectedTaskId && tasks.length > 0) {
-          setTimeout(() => {
-            const latestSession = sessions[0];
-            if (latestSession && !latestSession.taskId) {
-              setCompletedSessionInfo({
-                duration: actualDuration,
-                points: pointsEarned,
-                sessionId: latestSession._id,
-              });
-              setShowCompletionScreen(true);
-            } else {
-              setStatusMessage(`Session logged! +${pointsEarned} Focus Points earned.`);
-            }
-          }, 100);
-        } else {
-          setStatusMessage(
-            taskTitle
-              ? `Session logged to "${taskTitle}"! +${pointsEarned} FP earned.`
-              : `Session logged! +${pointsEarned} Focus Points earned.`
-          );
-        }
-
-        showNotification(
-          isDeepSession ? "Deep Focus Complete! 🌳" : "Focus Session Complete! 🎯",
-          `${taskTitle ?? "Focus"}: +${pointsEarned} Focus Points earned! Time for a mindful break.`
-        );
-        playChime(isDeepSession);
-      } catch (error) {
-        setStatusMessage(
-          error instanceof Error ? error.message : "Unable to log session right now."
-        );
-      }
-    } else {
-      setStatusMessage("Break finished. Ready to refocus when you are.");
-      showNotification(
-        "Break Complete! ☕",
-        "Feeling refreshed? Ready to start another focus session."
-      );
-      playChime(false);
-    }
-
-    if (!isOverflow) {
-      setMode((prev) => (prev === "focus" ? "break" : "focus"));
-    }
-  };
+  }, [taskIdFromUrl, tasks, switchTask]);
 
   const handleLinkTask = (taskId: string) => {
-    setSelectedTaskId(taskId);
+    switchTask(taskId);
     setShowTaskDropdown(false);
-  };
-
-  const handleAssignFromCompletion = async (taskId: string) => {
-    if (!completedSessionInfo) return;
-
-    try {
-      await updateSession({
-        id: completedSessionInfo.sessionId,
-        taskId,
-      });
-
-      const taskTitle = tasks.find((t) => t._id === taskId)?.title ?? "Task";
-      setStatusMessage(`Session linked to "${taskTitle}"! +${completedSessionInfo.points} FP`);
-    } catch (error) {
-      setStatusMessage(
-        error instanceof Error ? error.message : "Unable to link session to task."
-      );
-    }
-
-    setShowCompletionScreen(false);
-    setCompletedSessionInfo(null);
-  };
-
-  const toggleTimer = () => {
-    setStatusMessage(null);
-    setShowCompletionScreen(false);
-    if (isRunning) {
-      setIsPaused(true);
-      setIsRunning(false);
-    } else {
-      setIsPaused(false);
-      setIsRunning(true);
-    }
-  };
-
-  const wrapUpSession = async () => {
-    setIsRunning(false);
-    setIsPaused(false);
-    await handleCompletion();
-    setIsOverflow(false);
-    setOverflowSeconds(0);
-  };
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setIsPaused(false);
-    setTimeLeft(totalSeconds);
-    setStatusMessage(null);
-    setIsOverflow(false);
-    setOverflowSeconds(0);
-    setShowCompletionScreen(false);
-    setCompletedSessionInfo(null);
   };
 
   const recentSessions = useMemo(() => sessions.slice(0, 4), [sessions]);
 
-  const expectedPoints =
-    mode === "focus" ? calculateFocusPoints(getActualDuration()) : 0;
+  const getActualDuration = () => {
+    const baseDuration = totalSeconds / 60;
+    const overflowMinutes = Math.floor(overflowSeconds / 60);
+    return baseDuration + overflowMinutes;
+  };
+
+  const expectedPoints = mode === "focus" ? calculateFocusPoints(getActualDuration()) : 0;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[2fr,1fr]">
@@ -311,11 +118,7 @@ function TimerContent() {
                 ? "bg-[var(--focus)] text-white shadow-md"
                 : "bg-[var(--surface-muted)] text-[var(--muted)]"
             }`}
-            onClick={() => {
-              setMode("focus");
-              setIsRunning(false);
-              setIsPaused(false);
-            }}
+            onClick={() => setMode("focus")}
           >
             Focus Mode
           </button>
@@ -326,11 +129,7 @@ function TimerContent() {
                 ? "bg-[var(--break)] text-white shadow-md"
                 : "bg-[var(--surface-muted)] text-[var(--muted)]"
             }`}
-            onClick={() => {
-              setMode("break");
-              setIsRunning(false);
-              setIsPaused(false);
-            }}
+            onClick={() => setMode("break")}
           >
             Break Mode
           </button>
@@ -397,7 +196,7 @@ function TimerContent() {
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" /> Start
+                  <Play className="h-4 w-4" /> {isPaused ? "Resume" : "Start"}
                 </>
               )}
             </button>
@@ -455,13 +254,7 @@ function TimerContent() {
               step={5}
               value={focusDuration}
               aria-label="Focus duration"
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                setFocusDuration(value);
-                if (mode === "focus" && !isRunning) {
-                  setTimeLeft(value * 60);
-                }
-              }}
+              onChange={(event) => setFocusDuration(Number(event.target.value))}
               className="w-full"
             />
             <p className="text-sm text-[var(--muted)]">{focusDuration} minutes</p>
@@ -477,13 +270,7 @@ function TimerContent() {
               step={1}
               value={breakDuration}
               aria-label="Break duration"
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                setBreakDuration(value);
-                if (mode === "break" && !isRunning) {
-                  setTimeLeft(value * 60);
-                }
-              }}
+              onChange={(event) => setBreakDuration(Number(event.target.value))}
               className="w-full"
             />
             <p className="text-sm text-[var(--muted)]">{breakDuration} minutes</p>

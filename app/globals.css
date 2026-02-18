@@ -272,6 +272,23 @@ body {
   opacity: 0.7;
 }
 
+/* Task progress bar underline */
+.task-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.task-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+}
+
 /* Task Input - Seamless editing */
 .task-input {
   flex: 1;
@@ -504,3 +521,13 @@ body {
   padding: 1rem;
 }
 
+/* ── Floating Timer Widget – mobile full-width bottom bar ─────────────── */
+@media (max-width: 639px) {
+  .floating-timer-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    width: auto !important;
+  }
+}

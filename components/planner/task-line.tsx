@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, forwardRef } from "react";
 import { motion, AnimatePresence, HTMLMotionProps } from "framer-motion";
-import { Play, Trash2, GripVertical, Check } from "lucide-react";
-import Link from "next/link";
+import { Play, Trash2, GripVertical, Check, Timer } from "lucide-react";
 import type { TaskDTO } from "@/types";
 import { parseTaskInput } from "@/lib/tasks";
+import { useTimerState, useTimerActions } from "@/context/timer-context";
 
 interface TaskLineProps {
   task: TaskDTO;
@@ -66,8 +66,42 @@ export function TaskLine({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
   const [showCompletionGlow, setShowCompletionGlow] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevCompletedRef = useRef(task.completed);
+
+  const timerState = useTimerState();
+  const { startTimer, switchTask } = useTimerActions();
+
+  const isTimerActiveElsewhere =
+    (timerState.isRunning || timerState.isPaused) &&
+    timerState.selectedTaskId !== task._id;
+  const isThisTaskTimed =
+    (timerState.isRunning || timerState.isPaused) &&
+    timerState.selectedTaskId === task._id;
+
+  const QUICK_DURATIONS = [15, 25, 45, 60];
+  const defaultDuration = task.focusMinutesGoal ?? 25;
+
+  const handleStartTimerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isTimerActiveElsewhere) {
+      setShowSwitchConfirm(true);
+      return;
+    }
+    setShowDurationPicker(true);
+  };
+
+  const handlePickDuration = (minutes: number) => {
+    setShowDurationPicker(false);
+    startTimer(task._id, minutes);
+  };
+
+  const handleConfirmSwitch = () => {
+    setShowSwitchConfirm(false);
+    switchTask(task._id);
+  };
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -150,6 +184,14 @@ export function TaskLine({
   // Visual states
   const isCompleted = task.completed;
   const isOverdue = isPast && !isCompleted;
+
+  // Progress bar: earnedPoints (1pt = 1 min) vs focusMinutesGoal
+  const goal = task.focusMinutesGoal ?? (task.focusMinutes ?? null);
+  const progressRatio = isCompleted
+    ? 1
+    : goal && goal > 0
+    ? Math.min(1, (task.earnedPoints ?? 0) / goal)
+    : null; // null = no goal, show faint track only
 
   return (
     <DraggableMotionDiv
@@ -263,15 +305,97 @@ export function TaskLine({
         </motion.span>
       )}
 
+      {/* Active timer pulsing indicator */}
+      <AnimatePresence>
+        {isThisTaskTimed && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="flex-shrink-0 flex items-center gap-1 rounded-full bg-[var(--focus-soft)]/40 px-2 py-0.5 text-[10px] font-medium text-[var(--focus)]"
+          >
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--focus)]" />
+            {timerState.isRunning ? "focusing" : "paused"}
+          </motion.span>
+        )}
+      </AnimatePresence>
+
       {/* Actions - only visible on hover */}
-      <div className="task-actions">
-        <Link
-          href={`/timer?taskId=${task._id}`}
+      <div className="task-actions" style={{ position: "relative" }}>
+        {/* Duration picker popover */}
+        <AnimatePresence>
+          {showDurationPicker && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-full right-0 z-50 mb-1.5 flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-xl"
+              onMouseLeave={() => setShowDurationPicker(false)}
+            >
+              {QUICK_DURATIONS.map((min) => (
+                <button
+                  key={min}
+                  type="button"
+                  onClick={() => handlePickDuration(min)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                    min === defaultDuration
+                      ? "bg-[var(--focus)] text-white"
+                      : "text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+                  }`}
+                >
+                  {min}m
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Switch confirm popover */}
+        <AnimatePresence>
+          {showSwitchConfirm && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-full right-0 z-50 mb-1.5 w-52 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-xl"
+            >
+              <p className="mb-2 text-xs text-[var(--muted)]">
+                Timer is running for another task. Switch to this one?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmSwitch}
+                  className="flex-1 rounded-lg bg-[var(--focus)] px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-[var(--focus)]/90"
+                >
+                  Switch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSwitchConfirm(false)}
+                  className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs font-medium text-[var(--muted)] transition-colors hover:border-[var(--muted)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          type="button"
           className="task-action task-action--play"
           aria-label="Start focus session"
+          onClick={handleStartTimerClick}
         >
-          <Play className="h-3.5 w-3.5" />
-        </Link>
+          {isThisTaskTimed ? (
+            <Timer className="h-3.5 w-3.5" style={{ color: "var(--focus)" }} />
+          ) : (
+            <Play className="h-3.5 w-3.5" />
+          )}
+        </button>
         <button
           className="task-action task-action--delete"
           onClick={onDelete}
@@ -279,6 +403,26 @@ export function TaskLine({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
+      </div>
+
+      {/* Progress bar underline */}
+      <div className="task-progress-track">
+        {progressRatio !== null && (
+          <motion.div
+            className="task-progress-fill"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressRatio * 100}%` }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            style={{
+              backgroundColor: isCompleted
+                ? "var(--focus)"
+                : isOverdue
+                ? "var(--break)"
+                : "var(--focus)",
+              opacity: isCompleted ? 0.5 : 0.75,
+            }}
+          />
+        )}
       </div>
     </DraggableMotionDiv>
   );
