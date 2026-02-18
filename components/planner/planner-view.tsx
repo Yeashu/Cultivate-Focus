@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTaskActions } from "@/context/focus-context";
-import { DayColumn } from "./day-column";
-import { SomedayHorizon } from "./someday-horizon";
+import { PlannerHeader } from "./planner-header";
+import { WeekGrid } from "./week-grid";
+import { SomedaySidebar } from "./someday-sidebar";
 import type { TaskDTO } from "@/types";
 
 function getWeekDates(weekOffset: number): { date: Date; iso: string }[] {
@@ -34,10 +34,17 @@ function formatMonthYear(dates: { date: Date }[]): string {
   return `${first.toLocaleDateString("en-US", { month: "short" })} – ${last.toLocaleDateString("en-US", opts)}`;
 }
 
-export function WeeklyPlanner() {
-  const { tasks, createTask, updateTask, deleteTask, loading } = useTaskActions();
+const SIDEBAR_KEY = "cultivate-focus:someday-sidebar";
+
+export function PlannerView() {
+  const { tasks, createTask, updateTask, deleteTask, loading } =
+    useTaskActions();
   const [weekOffset, setWeekOffset] = useState(0);
   const [draggedTask, setDraggedTask] = useState<TaskDTO | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(SIDEBAR_KEY) !== "closed";
+  });
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -61,6 +68,7 @@ export function WeeklyPlanner() {
     [tasks]
   );
 
+  // --- Drag handlers ---
   const handleDragStart = useCallback((task: TaskDTO) => {
     setDraggedTask(task);
   }, []);
@@ -88,16 +96,36 @@ export function WeeklyPlanner() {
     setDraggedTask(null);
   }, [draggedTask, updateTask]);
 
+  // --- Task CRUD handlers ---
   const handleCreateTask = useCallback(
     async (title: string, scheduledDate: string, focusMinutesGoal?: number) => {
-      await createTask({ title, scheduledDate, focusMinutesGoal: focusMinutesGoal ?? null });
+      await createTask({
+        title,
+        scheduledDate,
+        focusMinutesGoal: focusMinutesGoal ?? null,
+      });
+    },
+    [createTask]
+  );
+
+  const handleCreateSomedayTask = useCallback(
+    async (title: string, focusMinutesGoal?: number) => {
+      await createTask({
+        title,
+        scheduledDate: "someday",
+        focusMinutesGoal: focusMinutesGoal ?? null,
+      });
     },
     [createTask]
   );
 
   const handleUpdateTask = useCallback(
     async (taskId: string, title: string, focusMinutesGoal?: number) => {
-      await updateTask({ id: taskId, title, focusMinutesGoal: focusMinutesGoal ?? null });
+      await updateTask({
+        id: taskId,
+        title,
+        focusMinutesGoal: focusMinutesGoal ?? null,
+      });
     },
     [updateTask]
   );
@@ -118,13 +146,26 @@ export function WeeklyPlanner() {
 
   const handleReorderTasks = useCallback(
     async (taskIds: string[]) => {
-      // Update order for each task
       await Promise.all(
         taskIds.map((id, index) => updateTask({ id, order: index }))
       );
     },
     [updateTask]
   );
+
+  // --- Sidebar toggle ---
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_KEY, next ? "open" : "closed");
+      return next;
+    });
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+    localStorage.setItem(SIDEBAR_KEY, "closed");
+  }, []);
 
   if (loading) {
     return (
@@ -135,70 +176,48 @@ export function WeeklyPlanner() {
   }
 
   return (
-    <div className="weekly-planner">
-      {/* Header */}
-      <header className="mb-8 flex items-center justify-between">
-        <h2 className="text-2xl font-light tracking-tight text-[var(--foreground)]">
-          {formatMonthYear(weekDates)}
-        </h2>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setWeekOffset((o) => o - 1)}
-            className="p-2 text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
-            aria-label="Previous week"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => setWeekOffset(0)}
-            className="px-3 py-1 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)] disabled:opacity-50"
-            disabled={weekOffset === 0}
-          >
-            Today
-          </button>
-          <button
-            onClick={() => setWeekOffset((o) => o + 1)}
-            className="p-2 text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
-            aria-label="Next week"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+    <div className="planner-view">
+      <PlannerHeader
+        monthYearLabel={formatMonthYear(weekDates)}
+        weekOffset={weekOffset}
+        onPrev={() => setWeekOffset((o) => o - 1)}
+        onNext={() => setWeekOffset((o) => o + 1)}
+        onToday={() => setWeekOffset(0)}
+        somedayCount={somedayTasks.filter((t) => !t.completed).length}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={toggleSidebar}
+      />
 
-      {/* Week Grid */}
-      <div className="week-grid">
-        {weekDates.map(({ date, iso }) => (
-          <DayColumn
-            key={iso}
-            date={date}
-            dateIso={iso}
-            isToday={iso === todayIso}
-            isPast={iso < todayIso}
-            tasks={tasksByDate[iso] || []}
+      <div className="planner-content">
+        <div className="planner-main">
+          <WeekGrid
+            weekDates={weekDates}
+            tasksByDate={tasksByDate}
+            todayIso={todayIso}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onDrop={() => handleDropOnDay(iso)}
-            onCreateTask={(title: string, focusMinutesGoal?: number) => handleCreateTask(title, iso, focusMinutesGoal)}
+            onDropOnDay={handleDropOnDay}
+            onCreateTask={handleCreateTask}
             onUpdateTask={handleUpdateTask}
             onToggleComplete={handleToggleComplete}
             onDeleteTask={handleDeleteTask}
             onReorderTasks={handleReorderTasks}
           />
-        ))}
-      </div>
+        </div>
 
-      {/* Someday Horizon */}
-      <SomedayHorizon
-        tasks={somedayTasks}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDrop={handleDropOnSomeday}
-        onCreateTask={(title: string, focusMinutesGoal?: number) => handleCreateTask(title, "someday", focusMinutesGoal)}
-        onUpdateTask={handleUpdateTask}
-        onToggleComplete={handleToggleComplete}
-        onDeleteTask={handleDeleteTask}
-      />
+        <SomedaySidebar
+          isOpen={sidebarOpen}
+          onClose={closeSidebar}
+          tasks={somedayTasks}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDrop={handleDropOnSomeday}
+          onCreateTask={handleCreateSomedayTask}
+          onUpdateTask={handleUpdateTask}
+          onToggleComplete={handleToggleComplete}
+          onDeleteTask={handleDeleteTask}
+        />
+      </div>
     </div>
   );
 }

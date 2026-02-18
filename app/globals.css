@@ -42,9 +42,38 @@ body {
    Weekly Planner - Paper Spread Aesthetic
    ======================================== */
 
-.weekly-planner {
+.weekly-planner,
+.planner-view {
   --paper-line: var(--border);
   --paper-line-subtle: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+/* Fullscreen planner layout */
+.planner-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.planner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+}
+
+.planner-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.planner-main {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
 }
 
 /* Week Grid - 7 columns like an open planner */
@@ -52,7 +81,7 @@ body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 0;
-  min-height: 420px;
+  min-height: 100%;
 }
 
 @media (max-width: 900px) {
@@ -346,17 +375,13 @@ body {
 
 /* Someday Horizon - Undated section */
 .someday-horizon {
-  margin-top: 3rem;
-  padding-top: 1.5rem;
-  border-top: 1px dashed var(--paper-line);
   transition: background-color 0.15s ease;
 }
 
 .someday-horizon--drop-target {
   background-color: var(--focus-soft);
   border-radius: 0.5rem;
-  margin: 2.5rem -0.5rem 0;
-  padding: 1.5rem 0.5rem 0.5rem;
+  padding: 0.5rem;
 }
 
 .someday-header {
@@ -382,12 +407,74 @@ body {
 }
 
 .someday-tasks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .add-task-zone--someday {
-  grid-column: 1;
+}
+
+/* ========================================
+   Someday Sidebar
+   ======================================== */
+
+/* Desktop sidebar */
+.someday-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--paper-line-subtle, var(--border));
+  overflow-y: auto;
+  padding: 1rem;
+  transition: width 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+}
+
+.someday-sidebar--collapsed {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  border-left: none;
+}
+
+/* Mobile: hide desktop sidebar, use overlay drawer instead */
+@media (max-width: 768px) {
+  .someday-sidebar {
+    display: none;
+  }
+}
+
+/* Mobile overlay backdrop */
+.someday-overlay {
+  display: none;
+}
+
+.someday-drawer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .someday-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+  }
+
+  .someday-drawer {
+    display: block;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 85vw;
+    max-width: 320px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 50;
+    overflow-y: auto;
+    padding: 1rem;
+  }
 }
 

@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
         detail: "Move tasks between days or into the Someday horizon at the bottom.",
       },
     ],
-    action: { label: "Go to Planner", href: "/tasks" },
+    action: { label: "Go to Planner", href: "/" },
     icon: ClipboardList,
   },
   {
@@ -112,7 +112,7 @@ const tutorialSteps: TutorialStep[] = [
         detail: "Consecutive days with at least one session. Keep the leaves growing!",
       },
     ],
-    action: { label: "Go to Dashboard", href: "/" },
+    action: { label: "Go to Dashboard", href: "/dashboard" },
     icon: BarChart3,
   },
 ];
