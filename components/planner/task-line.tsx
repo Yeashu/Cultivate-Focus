@@ -305,23 +305,8 @@ export function TaskLine({
         </motion.span>
       )}
 
-      {/* Active timer pulsing indicator */}
-      <AnimatePresence>
-        {isThisTaskTimed && (
-          <motion.span
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            className="flex-shrink-0 flex items-center gap-1 rounded-full bg-[var(--focus-soft)]/40 px-2 py-0.5 text-[10px] font-medium text-[var(--focus)]"
-          >
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--focus)]" />
-            {timerState.isRunning ? "focusing" : "paused"}
-          </motion.span>
-        )}
-      </AnimatePresence>
-
-      {/* Actions - only visible on hover */}
-      <div className="task-actions" style={{ position: "relative" }}>
+      {/* Actions - visible on hover OR when timer is active */}
+      <div className={`task-actions ${isThisTaskTimed ? "task-actions--active" : ""}`} style={{ position: "relative" }}>
         {/* Duration picker popover */}
         <AnimatePresence>
           {showDurationPicker && (
@@ -387,11 +372,11 @@ export function TaskLine({
         <button
           type="button"
           className="task-action task-action--play"
-          aria-label="Start focus session"
+          aria-label={isThisTaskTimed ? (timerState.isRunning ? "Timer active" : "Timer paused") : "Start focus session"}
           onClick={handleStartTimerClick}
         >
           {isThisTaskTimed ? (
-            <Timer className="h-3.5 w-3.5" style={{ color: "var(--focus)" }} />
+            <Timer className={`h-3.5 w-3.5 ${timerState.isRunning ? "animate-pulse" : ""}`} style={{ color: "var(--focus)" }} />
           ) : (
             <Play className="h-3.5 w-3.5" />
           )}

@@ -327,6 +327,34 @@ body {
   pointer-events: none;
 }
 
+/* Force visibility when a task is active */
+.task-actions--active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Hide delete button when active but NOT hovered to keep clean row */
+.task-actions--active .task-action--delete {
+  opacity: 0;
+  max-width: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: opacity 0.2s ease, max-width 0.2s ease, padding 0.2s ease, transform 0.2s ease;
+}
+
+.group:hover .task-actions--active .task-action--delete {
+  opacity: 1;
+  max-width: 2rem;
+  padding: 0.25rem;
+  margin: 0;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
 .group:hover .task-actions {
   opacity: 1;
   transform: translateX(0);
