@@ -32,7 +32,7 @@ export interface TimerState {
 }
 
 export interface TimerActions {
-  startTimer: (taskId?: string, durationMinutes?: number) => void;
+  startTimer: (taskId?: string, durationMinutes?: number, mode?: TimerMode) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
   toggleTimer: () => void;
@@ -137,7 +137,7 @@ export function useTimer(): TimerState & TimerActions {
         isRunning: persisted.isRunning,
         isPaused: !persisted.isRunning && persisted.timeLeft < persisted.focusDuration * 60,
         timeLeft,
-        isOverflow: persisted.isOverflow || (persisted.isRunning && persisted.timeLeft === 0),
+        isOverflow: persisted.isOverflow || (persisted.isRunning && timeLeft === 0),
         overflowSeconds,
         showCompletionScreen: false,
         completedSessionInfo: null,
@@ -318,10 +318,17 @@ export function useTimer(): TimerState & TimerActions {
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
-  const startTimer = useCallback((taskId?: string, durationMinutes?: number) => {
+  const startTimer = useCallback((taskId?: string, durationMinutes?: number, timerMode: TimerMode = "focus") => {
+    setModeState(timerMode);
+    setIsOverflow(false);
+    setOverflowSeconds(0);
     if (taskId !== undefined) setSelectedTaskIdState(taskId);
     if (durationMinutes !== undefined) {
-      setFocusDurationState(durationMinutes);
+      if (timerMode === "focus") {
+        setFocusDurationState(durationMinutes);
+      } else {
+        setBreakDurationState(durationMinutes);
+      }
       setTimeLeft(durationMinutes * 60);
     }
     setStatusMessage(null);

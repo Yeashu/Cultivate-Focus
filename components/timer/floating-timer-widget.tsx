@@ -144,7 +144,6 @@ export function FloatingTimerWidget() {
     resetTimer,
     switchTask,
     startTimer,
-    setMode,
     setShowCompletionScreen,
     setStatusMessage,
     handleAssignFromCompletion,
@@ -210,8 +209,7 @@ export function FloatingTimerWidget() {
 
   const handleStartBreak = () => {
     setShowBreakPrompt(false);
-    setMode("break");
-    startTimer(selectedTaskId || undefined, breakDuration);
+    startTimer(selectedTaskId || undefined, breakDuration, "break");
   };
 
   const handleDone = () => {
